@@ -23,16 +23,23 @@ services:
   # Node.js RAG Service
   rag-service:
     build:
-      context: ./rag-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: rag-service.Dockerfile
     ports:
       - "3001:3001"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
       - QDRANT_URL=http://qdrant:6333
       - NODE_ENV=production
       - PORT=3001
+      - ARTICLES_JSON_PATH=/app/data/articles.json
+      - EMBEDDING_MODEL=Xenova/all-MiniLM-L6-v2
+      - EMBEDDING_DIMENSIONS=384
+      - CLAUDE_MODEL=claude-3-7-sonnet-latest
+      - CHUNK_SIZE=1000
+      - CHUNK_OVERLAP=200
+      - MAX_TOKENS=4000
+      - TEMPERATURE=0.7
     depends_on:
       - qdrant
     networks:
