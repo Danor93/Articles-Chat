@@ -67,24 +67,29 @@ func (h *ArticleHandler) HandleAddArticle(c *fiber.Ctx) error {
 	errorChan := make(chan error, 1)
 
 	h.poolManager.SubmitArticleTask(func() {
-		// Fetch article
-		slog.Info("Fetching article", "url", req.URL)
-		article, err := h.fetcher.FetchArticle(ctx, req.URL)
-		if err != nil {
-			errorChan <- err
-			return
+		// Create a simple article record
+		slog.Info("Forwarding article to RAG service", "url", req.URL)
+		
+		// Generate a simple ID from URL
+		articleID := fmt.Sprintf("article_%d", time.Now().Unix())
+		article := &models.Article{
+			ID:        articleID,
+			URL:       req.URL,
+			Status:    "processing",
+			FetchedAt: time.Now(),
+			Source:    "user_submitted",
 		}
 
 		// Send article to RAG service for processing
 		metadata := map[string]interface{}{
-			"article_id": article.ID,
-			"title":      article.Title,
-			"source":     article.Source,
-			"fetched_at": article.FetchedAt,
+			"article_id": articleID,
+			"source":     "user_submitted",
+			"submitted_at": time.Now(),
 		}
 		
 		if err := h.ragClient.ProcessArticle(ctx, req.URL, metadata); err != nil {
-			errorChan <- err
+			slog.Error("Failed to send article to RAG service", "error", err, "url", req.URL)
+			errorChan <- fmt.Errorf("failed to process article: %w", err)
 			return
 		}
 
@@ -93,7 +98,6 @@ func (h *ArticleHandler) HandleAddArticle(c *fiber.Ctx) error {
 		h.articles[article.ID] = article
 		h.articlesMux.Unlock()
 		article.Status = "indexed"
-		article.ChunkCount = 0 // Will be updated by RAG service
 
 		responseChan <- models.AddArticleResponse{
 			ID:      article.ID,
