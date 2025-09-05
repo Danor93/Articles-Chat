@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"article-chat-system/server/internal/errors"
 	"article-chat-system/server/internal/fetcher"
 	"article-chat-system/server/internal/models"
 	"article-chat-system/server/internal/services"
+	"article-chat-system/server/internal/validation"
 	"article-chat-system/server/internal/workers"
 	"context"
 	"fmt"
@@ -42,23 +44,16 @@ func (h *ArticleHandler) HandleAddArticle(c *fiber.Ctx) error {
 	var req models.AddArticleRequest
 	if err := c.BodyParser(&req); err != nil {
 		slog.Error("Failed to parse add article request", "error", err)
-		return c.Status(fiber.StatusBadRequest).JSON(models.ErrorResponse{
-			Error:     "invalid_request",
-			Message:   "Failed to parse request body",
-			Code:      fiber.StatusBadRequest,
-			Timestamp: time.Now(),
-			RequestID: c.Get("X-Request-ID"),
-		})
+		return errors.NewWithDetails(
+			errors.ErrBadRequest,
+			"Failed to parse request body",
+			map[string]string{"parse_error": err.Error()},
+		).WithRequestID(c.Get("X-Request-ID"))
 	}
 
-	if req.URL == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(models.ErrorResponse{
-			Error:     "missing_url",
-			Message:   "Article URL is required",
-			Code:      fiber.StatusBadRequest,
-			Timestamp: time.Now(),
-			RequestID: c.Get("X-Request-ID"),
-		})
+	// Validate URL
+	if err := validation.ValidateArticleURL(req.URL); err != nil {
+		return err
 	}
 
 	// Create context with timeout
@@ -148,22 +143,13 @@ func (h *ArticleHandler) HandleAddArticle(c *fiber.Ctx) error {
 
 	case err := <-errorChan:
 		slog.Error("Article processing failed", "url", req.URL, "error", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(models.ErrorResponse{
-			Error:     "processing_failed",
-			Message:   fmt.Sprintf("Failed to process article: %v", err),
-			Code:      fiber.StatusInternalServerError,
-			Timestamp: time.Now(),
-			RequestID: c.Get("X-Request-ID"),
-		})
+		return err
 
 	case <-ctx.Done():
-		return c.Status(fiber.StatusRequestTimeout).JSON(models.ErrorResponse{
-			Error:     "timeout",
-			Message:   "Article processing timed out",
-			Code:      fiber.StatusRequestTimeout,
-			Timestamp: time.Now(),
-			RequestID: c.Get("X-Request-ID"),
-		})
+		return errors.New(
+			errors.ErrServiceUnavailable,
+			"Article processing timed out",
+		).WithRequestID(c.Get("X-Request-ID"))
 	}
 }
 
@@ -185,26 +171,20 @@ func (h *ArticleHandler) HandleListArticles(c *fiber.Ctx) error {
 func (h *ArticleHandler) HandleGetArticle(c *fiber.Ctx) error {
 	articleID := c.Params("id")
 	if articleID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(models.ErrorResponse{
-			Error:     "missing_id",
-			Message:   "Article ID is required",
-			Code:      fiber.StatusBadRequest,
-			Timestamp: time.Now(),
-			RequestID: c.Get("X-Request-ID"),
-		})
+		return errors.New(
+			errors.ErrMissingRequiredField,
+			"Article ID is required",
+		).WithRequestID(c.Get("X-Request-ID"))
 	}
 
 	h.articlesMux.RLock()
 	article, exists := h.articles[articleID]
 	h.articlesMux.RUnlock()
 	if !exists {
-		return c.Status(fiber.StatusNotFound).JSON(models.ErrorResponse{
-			Error:     "article_not_found",
-			Message:   "Article not found",
-			Code:      fiber.StatusNotFound,
-			Timestamp: time.Now(),
-			RequestID: c.Get("X-Request-ID"),
-		})
+		return errors.New(
+			errors.ErrArticleNotFound,
+			"Article not found",
+		).WithRequestID(c.Get("X-Request-ID"))
 	}
 
 	return c.JSON(article)
@@ -213,26 +193,20 @@ func (h *ArticleHandler) HandleGetArticle(c *fiber.Ctx) error {
 func (h *ArticleHandler) HandleDeleteArticle(c *fiber.Ctx) error {
 	articleID := c.Params("id")
 	if articleID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(models.ErrorResponse{
-			Error:     "missing_id",
-			Message:   "Article ID is required",
-			Code:      fiber.StatusBadRequest,
-			Timestamp: time.Now(),
-			RequestID: c.Get("X-Request-ID"),
-		})
+		return errors.New(
+			errors.ErrMissingRequiredField,
+			"Article ID is required",
+		).WithRequestID(c.Get("X-Request-ID"))
 	}
 
 	h.articlesMux.RLock()
 	article, exists := h.articles[articleID]
 	h.articlesMux.RUnlock()
 	if !exists {
-		return c.Status(fiber.StatusNotFound).JSON(models.ErrorResponse{
-			Error:     "article_not_found",
-			Message:   "Article not found",
-			Code:      fiber.StatusNotFound,
-			Timestamp: time.Now(),
-			RequestID: c.Get("X-Request-ID"),
-		})
+		return errors.New(
+			errors.ErrArticleNotFound,
+			"Article not found",
+		).WithRequestID(c.Get("X-Request-ID"))
 	}
 
 	// Remove from memory (in production, delete from database)

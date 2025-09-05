@@ -3,6 +3,9 @@ import { langchainService } from '../services/langchain.service';
 import { vectorStoreService } from '../services/vectorstore.service';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { asyncHandler } from '../middleware/error-handler';
+import { validateRequest, articleValidationRules, batchArticleValidationRules } from '../middleware/validation';
+import { createError, ErrorCode } from '../utils/errors';
 
 const router = Router();
 
@@ -53,28 +56,52 @@ async function fetchArticleContent(url: string): Promise<{ title: string; conten
       .trim();
 
     if (!content || content.length < 100) {
-      throw new Error('Article content too short or empty');
+      throw createError(
+        ErrorCode.VALIDATION_ERROR,
+        'Article content too short or empty (minimum 100 characters required)'
+      );
     }
 
     return { title, content };
   } catch (error) {
     console.error(`Error fetching article from ${url}:`, error);
-    throw new Error(`Failed to fetch article: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 404) {
+        throw createError(
+          ErrorCode.ARTICLE_NOT_FOUND,
+          `Article not found at URL: ${url}`
+        );
+      }
+      if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+        throw createError(
+          ErrorCode.SERVICE_UNAVAILABLE,
+          'Article fetch timed out'
+        );
+      }
+    }
+    
+    throw error instanceof Error && 'code' in error ? error : createError(
+      ErrorCode.PROCESSING_ERROR,
+      `Failed to fetch article: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
-router.post('/process', async (req: Request, res: Response): Promise<void> => {
-  try {
+router.post('/process', 
+  validateRequest(articleValidationRules),
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { url, title }: ProcessArticleRequest = req.body;
 
-    if (!url || typeof url !== 'string') {
-      res.status(400).json({ 
-        error: 'URL is required and must be a string' 
-      });
-      return;
-    }
-
     console.log(`Processing single article: ${url}`);
+
+    // Check if services are initialized
+    if (!langchainService.isInitialized()) {
+      throw createError(
+        ErrorCode.SERVICE_NOT_INITIALIZED,
+        'Article processing service is not initialized'
+      );
+    }
 
     const { title: fetchedTitle, content } = await fetchArticleContent(url);
     const articleTitle = title || fetchedTitle;
@@ -88,33 +115,28 @@ router.post('/process', async (req: Request, res: Response): Promise<void> => {
       chunks: ids.length,
       documentIds: ids,
     });
+  })
+);
 
-  } catch (error) {
-    console.error('Process article error:', error);
-    res.status(500).json({ 
-      error: 'Failed to process article',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
-
-router.post('/batch', async (req: Request, res: Response): Promise<void> => {
-  try {
+router.post('/batch', 
+  validateRequest(batchArticleValidationRules),
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { urls }: ProcessBatchRequest = req.body;
 
-    if (!Array.isArray(urls) || urls.length === 0) {
-      res.status(400).json({ 
-        error: 'URLs array is required and cannot be empty' 
-      });
-      return;
+    // Check if services are initialized
+    if (!langchainService.isInitialized()) {
+      throw createError(
+        ErrorCode.SERVICE_NOT_INITIALIZED,
+        'Article processing service is not initialized'
+      );
     }
 
     if (processingStatus.inProgress) {
-      res.status(429).json({ 
-        error: 'Batch processing already in progress',
-        status: processingStatus
-      });
-      return;
+      throw createError(
+        ErrorCode.PROCESSING_ERROR,
+        'Batch processing already in progress',
+        processingStatus
+      );
     }
 
     processingStatus = {
@@ -130,17 +152,14 @@ router.post('/batch', async (req: Request, res: Response): Promise<void> => {
       status: 'started'
     });
 
-    processBatchAsync(urls);
-
-  } catch (error) {
-    console.error('Batch processing error:', error);
-    processingStatus.inProgress = false;
-    res.status(500).json({ 
-      error: 'Failed to start batch processing',
-      message: error instanceof Error ? error.message : 'Unknown error'
+    // Process batch asynchronously
+    processBatchAsync(urls).catch(error => {
+      console.error('Batch processing failed:', error);
+      processingStatus.inProgress = false;
+      processingStatus.errors.push(error.message);
     });
-  }
-});
+  })
+);
 
 async function processBatchAsync(urls: string[]): Promise<void> {
   const concurrentLimit = parseInt(process.env.CONCURRENT_ARTICLE_LIMIT || '3');

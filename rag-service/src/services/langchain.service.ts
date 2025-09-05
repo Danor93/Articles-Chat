@@ -261,6 +261,10 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
       totalMessages,
     };
   }
+
+  isInitialized(): boolean {
+    return !!this.ragChain && faissVectorStoreService.isHealthy() && claudeService.isConfigured();
+  }
 }
 
 export const langchainService = new LangChainService();

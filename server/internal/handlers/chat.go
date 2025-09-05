@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"article-chat-system/server/internal/errors"
 	"article-chat-system/server/internal/models"
 	"article-chat-system/server/internal/services"
+	"article-chat-system/server/internal/validation"
 	"bufio"
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -29,24 +32,20 @@ func (h *ChatHandler) HandleChat(c *fiber.Ctx) error {
 	var req models.ChatRequest
 	if err := c.BodyParser(&req); err != nil {
 		slog.Error("Failed to parse chat request", "error", err)
-		return c.Status(fiber.StatusBadRequest).JSON(models.ErrorResponse{
-			Error:     "invalid_request",
-			Message:   "Failed to parse request body",
-			Code:      fiber.StatusBadRequest,
-			Timestamp: time.Now(),
-			RequestID: c.Get("X-Request-ID"),
-		})
+		return h.errorResponse(c, errors.NewWithDetails(
+			errors.ErrBadRequest,
+			"Failed to parse request body",
+			map[string]string{"parse_error": err.Error()},
+		))
 	}
 
+	// Sanitize inputs
+	req.Message = validation.SanitizeString(req.Message)
+	req.ConversationID = validation.SanitizeString(req.ConversationID)
+
 	// Validate request
-	if req.Message == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(models.ErrorResponse{
-			Error:     "missing_message",
-			Message:   "Message is required",
-			Code:      fiber.StatusBadRequest,
-			Timestamp: time.Now(),
-			RequestID: c.Get("X-Request-ID"),
-		})
+	if err := validation.ValidateChatRequest(req.Message, req.ConversationID); err != nil {
+		return h.errorResponse(c, err)
 	}
 
 	// Generate conversation ID if not provided
@@ -100,13 +99,25 @@ func (h *ChatHandler) HandleChat(c *fiber.Ctx) error {
 	response, err := h.ragClient.ProcessChat(ctx, req.Message, req.ConversationID, conversationHistory)
 	if err != nil {
 		slog.Error("RAG service failed", "error", err, "query", req.Message)
-		return c.Status(fiber.StatusInternalServerError).JSON(models.ErrorResponse{
-			Error:     "processing_failed",
-			Message:   "Failed to process your question",
-			Code:      fiber.StatusInternalServerError,
-			Timestamp: time.Now(),
-			RequestID: c.Get("X-Request-ID"),
-		})
+		
+		// Check for specific error types
+		if strings.Contains(err.Error(), "rag service error") {
+			return h.errorResponse(c, errors.New(
+				errors.ErrRAGServiceError,
+				"RAG service is temporarily unavailable",
+			))
+		}
+		if strings.Contains(err.Error(), "timeout") {
+			return h.errorResponse(c, errors.New(
+				errors.ErrServiceUnavailable,
+				"Request timed out, please try again",
+			))
+		}
+		
+		return h.errorResponse(c, errors.New(
+			errors.ErrProcessingError,
+			"Failed to process your question",
+		))
 	}
 
 	// Store response in cache with 24 hour TTL
@@ -124,6 +135,31 @@ func (h *ChatHandler) HandleChat(c *fiber.Ctx) error {
 	return c.JSON(response)
 }
 
+// errorResponse sends a standardized error response
+func (h *ChatHandler) errorResponse(c *fiber.Ctx, err error) error {
+	requestID := c.Get("X-Request-ID")
+	
+	if appErr, ok := errors.IsAppError(err); ok {
+		appErr.WithRequestID(requestID)
+		return c.Status(appErr.StatusCode()).JSON(models.ErrorResponse{
+			Error:     string(appErr.Code),
+			Message:   appErr.Message,
+			Code:      appErr.StatusCode(),
+			Timestamp: appErr.Timestamp,
+			RequestID: requestID,
+		})
+	}
+	
+	// Unknown error
+	return c.Status(fiber.StatusInternalServerError).JSON(models.ErrorResponse{
+		Error:     string(errors.ErrInternalServer),
+		Message:   "An unexpected error occurred",
+		Code:      fiber.StatusInternalServerError,
+		Timestamp: time.Now(),
+		RequestID: requestID,
+	})
+}
+
 func (h *ChatHandler) handleStreamingChat(c *fiber.Ctx, ctx context.Context, req models.ChatRequest, history []models.ChatMessage) error {
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
@@ -134,13 +170,10 @@ func (h *ChatHandler) handleStreamingChat(c *fiber.Ctx, ctx context.Context, req
 	responseChan, err := h.ragClient.ProcessChatStream(ctx, req.Message, req.ConversationID, history)
 	if err != nil {
 		slog.Error("Failed to start streaming", "error", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(models.ErrorResponse{
-			Error:     "streaming_failed",
-			Message:   "Failed to start streaming response",
-			Code:      fiber.StatusInternalServerError,
-			Timestamp: time.Now(),
-			RequestID: c.Get("X-Request-ID"),
-		})
+		return h.errorResponse(c, errors.New(
+			errors.ErrProcessingError,
+			"Failed to start streaming response",
+		))
 	}
 
 	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {

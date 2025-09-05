@@ -4,10 +4,10 @@ import (
 	"article-chat-system/server/internal/config"
 	"article-chat-system/server/internal/fetcher"
 	"article-chat-system/server/internal/handlers"
+	"article-chat-system/server/internal/middleware"
 	"article-chat-system/server/internal/services"
 	"article-chat-system/server/internal/workers"
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"log/slog"
@@ -19,7 +19,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -103,40 +102,12 @@ func main() {
 	app := fiber.New(fiber.Config{
 		ReadTimeout:  time.Duration(cfg.Server.ReadTimeout) * time.Second,
 		WriteTimeout: time.Duration(cfg.Server.WriteTimeout) * time.Second,
-		ErrorHandler: func(c *fiber.Ctx, err error) error {
-			// Handle nil errors (shouldn't happen but defensive programming)
-			if err == nil {
-				return nil
-			}
-			
-			// Status code defaults to 500
-			code := fiber.StatusInternalServerError
-			message := "Internal server error"
-			
-			// Retrieve the custom status code if it's a *fiber.Error
-			var e *fiber.Error
-			if errors.As(err, &e) {
-				code = e.Code
-				message = e.Message
-			}
-			
-			// Log the error
-			slog.Error("Request error", 
-				"error", err.Error(), 
-				"path", c.Path(), 
-				"method", c.Method(),
-				"status", code)
-			
-			// Send error response
-			return c.Status(code).JSON(fiber.Map{
-				"error": message,
-			})
-		},
+		ErrorHandler: middleware.ErrorHandler(),
 	})
 
 	// Middleware
 	app.Use(recover.New())
-	app.Use(requestid.New())
+	app.Use(middleware.RequestID())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
 		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",

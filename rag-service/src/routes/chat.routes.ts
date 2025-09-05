@@ -1,5 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { langchainService } from '../services/langchain.service';
+import { asyncHandler } from '../middleware/error-handler';
+import { validateRequest, chatValidationRules } from '../middleware/validation';
+import { createError, ErrorCode } from '../utils/errors';
 
 const router = Router();
 
@@ -18,18 +21,20 @@ interface ChatResponse {
   metadata?: any;
 }
 
-router.post('/', async (req: Request, res: Response): Promise<void> => {
-  try {
+router.post('/', 
+  validateRequest(chatValidationRules),
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { query, conversationId = 'default' }: ChatRequest = req.body;
 
-    if (!query || typeof query !== 'string') {
-      res.status(400).json({ 
-        error: 'Query is required and must be a string' 
-      });
-      return;
-    }
-
     console.log(`Processing chat query: ${query.substring(0, 100)}...`);
+
+    // Check if services are initialized
+    if (!langchainService.isInitialized()) {
+      throw createError(
+        ErrorCode.SERVICE_NOT_INITIALIZED,
+        'Chat service is not initialized'
+      );
+    }
 
     const formattedResponse = await langchainService.processChat(query, conversationId);
 
@@ -44,27 +49,23 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     };
 
     res.json(chatResponse);
-  } catch (error) {
-    console.error('Chat route error:', error);
-    res.status(500).json({ 
-      error: 'Failed to process chat query',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
+  })
+);
 
-router.post('/stream', async (req: Request, res: Response): Promise<void> => {
-  try {
+router.post('/stream', 
+  validateRequest(chatValidationRules),
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { query, conversationId = 'default' }: ChatRequest = req.body;
 
-    if (!query || typeof query !== 'string') {
-      res.status(400).json({ 
-        error: 'Query is required and must be a string' 
-      });
-      return;
-    }
-
     console.log(`Processing streaming chat query: ${query.substring(0, 100)}...`);
+
+    // Check if services are initialized
+    if (!langchainService.isInitialized()) {
+      throw createError(
+        ErrorCode.SERVICE_NOT_INITIALIZED,
+        'Chat service is not initialized'
+      );
+    }
 
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
@@ -72,89 +73,78 @@ router.post('/stream', async (req: Request, res: Response): Promise<void> => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Cache-Control');
 
-    const stream = await langchainService.processChatStreaming(query, conversationId);
+    try {
+      const stream = await langchainService.processChatStreaming(query, conversationId);
 
-    for await (const chunk of stream) {
-      res.write(`data: ${JSON.stringify({ content: chunk, done: false })}\n\n`);
+      for await (const chunk of stream) {
+        res.write(`data: ${JSON.stringify({ content: chunk, done: false })}\n\n`);
+      }
+
+      res.write(`data: ${JSON.stringify({ content: '', done: true })}\n\n`);
+      res.end();
+    } catch (error) {
+      console.error('Streaming error:', error);
+      const errorDetails = createError(
+        ErrorCode.PROCESSING_ERROR,
+        error instanceof Error ? error.message : 'Streaming failed'
+      ).toJSON();
+      res.write(`data: ${JSON.stringify({ 
+        error: errorDetails.code,
+        message: errorDetails.message,
+        done: true
+      })}\n\n`);
+      res.end();
     }
+  })
+);
 
-    res.write(`data: ${JSON.stringify({ content: '', done: true })}\n\n`);
-    res.end();
-
-  } catch (error) {
-    console.error('Streaming chat route error:', error);
-    res.write(`data: ${JSON.stringify({ 
-      error: 'Failed to process streaming chat query',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    })}\n\n`);
-    res.end();
+router.get('/history/:conversationId', asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const { conversationId } = req.params;
+  
+  if (!conversationId) {
+    throw createError(
+      ErrorCode.MISSING_REQUIRED_FIELD,
+      'Conversation ID is required'
+    );
   }
-});
 
-router.get('/history/:conversationId', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { conversationId } = req.params;
-    
-    if (!conversationId) {
-      res.status(400).json({ 
-        error: 'Conversation ID is required' 
-      });
-      return;
-    }
-
-    const history = langchainService.getConversationHistory(conversationId);
-    
-    res.json({
-      conversationId,
-      messages: history,
-      messageCount: history.length,
-    });
-  } catch (error) {
-    console.error('Get history route error:', error);
-    res.status(500).json({ 
-      error: 'Failed to get conversation history',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
+  const history = langchainService.getConversationHistory(conversationId);
+  
+  if (history.length === 0) {
+    throw createError(
+      ErrorCode.CONVERSATION_NOT_FOUND,
+      `No history found for conversation: ${conversationId}`
+    );
   }
-});
+  
+  res.json({
+    conversationId,
+    messages: history,
+    messageCount: history.length,
+  });
+}));
 
-router.delete('/history/:conversationId', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { conversationId } = req.params;
-    
-    if (!conversationId) {
-      res.status(400).json({ 
-        error: 'Conversation ID is required' 
-      });
-      return;
-    }
-
-    langchainService.clearConversationHistory(conversationId);
-    
-    res.json({
-      message: `Conversation history cleared for ${conversationId}`,
-      conversationId,
-    });
-  } catch (error) {
-    console.error('Clear history route error:', error);
-    res.status(500).json({ 
-      error: 'Failed to clear conversation history',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
+router.delete('/history/:conversationId', asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const { conversationId } = req.params;
+  
+  if (!conversationId) {
+    throw createError(
+      ErrorCode.MISSING_REQUIRED_FIELD,
+      'Conversation ID is required'
+    );
   }
-});
 
-router.get('/stats', async (req: Request, res: Response) => {
-  try {
-    const stats = await langchainService.getStats();
-    res.json(stats);
-  } catch (error) {
-    console.error('Stats route error:', error);
-    res.status(500).json({ 
-      error: 'Failed to get stats',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
+  langchainService.clearConversationHistory(conversationId);
+  
+  res.json({
+    message: `Conversation history cleared for ${conversationId}`,
+    conversationId,
+  });
+}));
+
+router.get('/stats', asyncHandler(async (req: Request, res: Response) => {
+  const stats = await langchainService.getStats();
+  res.json(stats);
+}));
 
 export { router as chatRoutes };
