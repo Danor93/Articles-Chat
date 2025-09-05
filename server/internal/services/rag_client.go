@@ -339,7 +339,7 @@ func (r *RAGClient) GetProcessingStatus(ctx context.Context) (*RAGStatusResponse
 func (r *RAGClient) HealthCheck(ctx context.Context) error {
 	resp, err := r.client.R().
 		SetContext(ctx).
-		Get("/api/health")
+		Get("/health")
 
 	if err != nil {
 		return fmt.Errorf("rag service health check failed: %w", err)

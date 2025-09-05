@@ -1,40 +1,39 @@
 services:
   # Go Backend - API Gateway and Orchestrator
-  backend:
+  backend-go:
     build:
       context: .
       dockerfile: server.Dockerfile
     ports:
       - "8080:8080"
+    env_file:
+      - ./server/.env
     environment:
-      - RAG_SERVICE_URL=http://rag-service:3001
-      - DATABASE_URL=postgresql://user:pass@postgres:5432/articledb
+      - RAG_SERVICE_URL=http://rag-service-nodejs:3001
       - REDIS_URL=redis://redis:6379
-      - PORT=8080
-      - HOST=0.0.0.0
       - GO_ENV=production
     depends_on:
-      - postgres
+      - rag-service-nodejs
       - redis
     networks:
       - app-network
     restart: unless-stopped
 
   # Node.js RAG Service
-  rag-service:
+  rag-service-nodejs:
     build:
-      context: ./rag-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: rag-service.Dockerfile
     ports:
       - "3001:3001"
+    env_file:
+      - ./rag-service/.env
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - QDRANT_URL=http://qdrant:6333
       - NODE_ENV=production
       - PORT=3001
-    depends_on:
-      - qdrant
+      - ARTICLES_JSON_PATH=/app/data/articles.json
+      - FAISS_STORE_PATH=/app/data/faiss_store
+      - TRANSFORMERS_CACHE=/app/.cache
     networks:
       - app-network
     volumes:
@@ -42,42 +41,18 @@ services:
     restart: unless-stopped
 
   # React Frontend
-  frontend:
+  frontend-react:
     build:
       context: .
       dockerfile: client.Dockerfile
     ports:
       - "3000:3000"
+    env_file:
+      - ./client/.env
     environment:
       - VITE_API_URL=http://localhost:8080
     depends_on:
-      - backend
-    networks:
-      - app-network
-    restart: unless-stopped
-
-  # PostgreSQL for metadata
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      - POSTGRES_DB=articledb
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=pass
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - app-network
-    restart: unless-stopped
-
-  # Qdrant Vector Database (used by RAG service)
-  qdrant:
-    image: qdrant/qdrant
-    ports:
-      - "6333:6333"
-    volumes:
-      - qdrant_data:/qdrant/storage
+      - backend-go
     networks:
       - app-network
     restart: unless-stopped
@@ -94,7 +69,3 @@ services:
 networks:
   app-network:
     driver: bridge
-
-volumes:
-  postgres_data:
-  qdrant_data:

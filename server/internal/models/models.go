@@ -64,6 +64,7 @@ type ChatResponse struct {
 	ProcessingTime int64         `json:"processing_time_ms"`
 	Model          string        `json:"model"`
 	CreatedAt      time.Time     `json:"created_at"`
+	Cached         bool          `json:"cached,omitempty"`
 }
 
 type ChunkSource struct {
@@ -94,6 +95,7 @@ type AddArticleResponse struct {
 	ID      string `json:"id"`
 	Status  string `json:"status"`
 	Message string `json:"message"`
+	Cached  bool   `json:"cached,omitempty"`
 }
 
 type ErrorResponse struct {

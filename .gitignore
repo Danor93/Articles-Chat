@@ -11,6 +11,11 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# Service-specific environment files
+client/.env
+server/.env
+rag-service/.env
+
 # Build outputs
 /client/dist/
 /server/bin/
@@ -54,5 +59,23 @@ logs/
 
 # Project-specific files to ignore
 Article_Chat_Assignment.pdf
+
+# RAG Service - Generated data and caches
+data/faiss_store/
+rag-service/.cache/
+rag-service/data/faiss_store/
+*.faiss
+*.index
+
+# RAG Service - Node.js specific
+rag-service/node_modules/
+rag-service/dist/
+rag-service/npm-debug.log*
+
+# Model downloads and embeddings cache
+.transformers_cache/
+*.bin
+*.safetensors
+
 article-chat-implementation-plan.md
 PROJECT_PROGRESS.md
