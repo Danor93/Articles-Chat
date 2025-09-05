@@ -76,6 +76,26 @@ func (h *ChatHandler) HandleChat(c *fiber.Ctx) error {
 		return h.handleStreamingChat(c, ctx, req, conversationHistory)
 	}
 
+	// Generate cache key for non-streaming requests
+	conversationContext := fmt.Sprintf("conv_%s", req.ConversationID)
+	cacheKey := services.GenerateCacheKey(req.Message, conversationContext)
+
+	// Check cache first
+	var cachedResponse models.ChatResponse
+	if err := h.cache.Get(ctx, cacheKey, &cachedResponse); err == nil {
+		slog.Info("Cache hit for chat request", 
+			"conversation_id", req.ConversationID,
+			"cache_key", cacheKey[:8]+"...")
+		
+		// Add cache hit indicator
+		cachedResponse.Cached = true
+		return c.JSON(cachedResponse)
+	}
+
+	slog.Debug("Cache miss for chat request", 
+		"conversation_id", req.ConversationID,
+		"cache_key", cacheKey[:8]+"...")
+
 	// Process query through RAG service
 	response, err := h.ragClient.ProcessChat(ctx, req.Message, req.ConversationID, conversationHistory)
 	if err != nil {
@@ -87,6 +107,12 @@ func (h *ChatHandler) HandleChat(c *fiber.Ctx) error {
 			Timestamp: time.Now(),
 			RequestID: c.Get("X-Request-ID"),
 		})
+	}
+
+	// Store response in cache with 24 hour TTL
+	if cacheErr := h.cache.Set(ctx, cacheKey, response, 24*time.Hour); cacheErr != nil {
+		slog.Warn("Failed to cache response", "error", cacheErr, "cache_key", cacheKey[:8]+"...")
+		// Don't fail the request if caching fails
 	}
 
 	slog.Info("Chat request processed successfully",

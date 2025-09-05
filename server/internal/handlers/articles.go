@@ -18,6 +18,7 @@ type ArticleHandler struct {
 	fetcher     *fetcher.ArticleFetcher
 	ragClient   *services.RAGClient
 	poolManager *workers.PoolManager
+	cache       services.CacheService
 	articles    map[string]*models.Article // In-memory storage for demo
 	articlesMux sync.RWMutex
 }
@@ -26,11 +27,13 @@ func NewArticleHandler(
 	fetcher *fetcher.ArticleFetcher,
 	ragClient *services.RAGClient,
 	poolManager *workers.PoolManager,
+	cache services.CacheService,
 ) *ArticleHandler {
 	return &ArticleHandler{
 		fetcher:     fetcher,
 		ragClient:   ragClient,
 		poolManager: poolManager,
+		cache:       cache,
 		articles:    make(map[string]*models.Article),
 	}
 }
@@ -61,6 +64,27 @@ func (h *ArticleHandler) HandleAddArticle(c *fiber.Ctx) error {
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(c.Context(), 2*time.Minute)
 	defer cancel()
+
+	// Generate cache key for article URL
+	cacheKey := services.GenerateArticleCacheKey(req.URL)
+
+	// Check if article is already cached
+	var cachedResponse models.AddArticleResponse
+	if err := h.cache.Get(ctx, cacheKey, &cachedResponse); err == nil {
+		slog.Info("Article cache hit", 
+			"url", req.URL,
+			"cache_key", cacheKey[:12]+"...",
+			"cached_article_id", cachedResponse.ID)
+		
+		// Mark as cached and return
+		cachedResponse.Cached = true
+		cachedResponse.Message = "Article already processed (from cache)"
+		return c.JSON(cachedResponse)
+	}
+
+	slog.Debug("Article cache miss", 
+		"url", req.URL,
+		"cache_key", cacheKey[:12]+"...")
 
 	// Process article asynchronously
 	responseChan := make(chan models.AddArticleResponse, 1)
@@ -99,11 +123,19 @@ func (h *ArticleHandler) HandleAddArticle(c *fiber.Ctx) error {
 		h.articlesMux.Unlock()
 		article.Status = "indexed"
 
-		responseChan <- models.AddArticleResponse{
+		response := models.AddArticleResponse{
 			ID:      article.ID,
 			Status:  "success",
 			Message: "Article processed and indexed successfully",
 		}
+
+		// Cache the successful response with 24 hour TTL
+		if cacheErr := h.cache.Set(ctx, cacheKey, response, 24*time.Hour); cacheErr != nil {
+			slog.Warn("Failed to cache article response", "error", cacheErr, "cache_key", cacheKey[:12]+"...")
+			// Don't fail the request if caching fails
+		}
+
+		responseChan <- response
 	})
 
 	// Wait for completion or timeout
