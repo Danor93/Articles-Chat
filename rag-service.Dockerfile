@@ -1,50 +1,65 @@
-FROM oven/bun:1.1-alpine AS base
-WORKDIR /usr/src/app
+# Use Node.js LTS with Debian base for better compatibility
+FROM node:20-bullseye-slim AS builder
 
-FROM base AS install
-# Add system dependencies for @xenova/transformers
-RUN apk --no-cache add \
-    gcompat \
-    libstdc++ \
-    ca-certificates \
-    curl
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /temp/dev
-COPY rag-service/package.json /temp/dev/
-RUN cd /temp/dev && bun install
+WORKDIR /app
 
-RUN mkdir -p /temp/prod  
-COPY rag-service/package.json /temp/prod/
-RUN cd /temp/prod && bun install --production
+# Copy package files
+COPY rag-service/package*.json ./
+COPY rag-service/tsconfig.json ./
 
-FROM base AS prerelease
-# Add system dependencies for runtime
-RUN apk --no-cache add \
-    gcompat \
-    libstdc++
+# Install all dependencies
+RUN npm ci
 
-COPY --from=install /temp/dev/node_modules node_modules
-COPY rag-service/ .
+# Copy source code
+COPY rag-service/src ./src
 
-FROM base AS release
-# Add system dependencies for runtime
-RUN apk --no-cache add \
-    gcompat \
-    libstdc++ \
-    ca-certificates \
-    curl
+# Build TypeScript
+RUN npm run build || npx tsc
 
-COPY --from=install /temp/prod/node_modules node_modules
-COPY --from=prerelease /usr/src/app .
+# Production stage
+FROM node:20-bullseye-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy package files
+COPY rag-service/package*.json ./
+
+# Install production dependencies
+RUN npm ci --production
+
+# Copy built application
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/src ./src
+
+# Create cache directory for transformer models
+RUN mkdir -p /app/.cache && chown -R node:node /app
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=3001
+ENV TRANSFORMERS_CACHE=/app/.cache
 
 EXPOSE 3001
 
-ENV NODE_ENV=production
-ENV PORT=3001
-
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:3001/health || exit 1
 
-USER bun
+USER node
 
-CMD ["bun", "--bun", "run", "src/index.ts"]
+# Run the compiled JavaScript or TypeScript directly
+CMD ["node", "dist/index.js"]

@@ -75,6 +75,10 @@ export class ClaudeService {
   getLLM(): ChatAnthropic {
     return this.llm;
   }
+
+  isConfigured(): boolean {
+    return !!process.env.ANTHROPIC_API_KEY && !!this.llm;
+  }
 }
 
 export const claudeService = new ClaudeService();

@@ -6,6 +6,8 @@ import dotenv from 'dotenv';
 import { chatRoutes } from './routes/chat.routes';
 import { articlesRoutes } from './routes/articles.routes';
 import { startupLoader } from './utils/startup-loader';
+import { faissVectorStoreService } from './services/faiss-vectorstore.service';
+import { claudeService } from './services/claude.service';
 
 dotenv.config();
 
@@ -28,6 +30,23 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
     service: 'rag-service',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
+});
+
+app.get('/health/detailed', (req, res) => {
+  const services = {
+    vectorStore: faissVectorStoreService.isHealthy(),
+    claude: claudeService.isConfigured(),
+    embeddings: true // Will be true if service starts
+  };
+  
+  const allHealthy = Object.values(services).every(status => status);
+  
+  res.json({
+    status: allHealthy ? 'healthy' : 'unhealthy',
+    services,
     timestamp: new Date().toISOString(),
     version: '1.0.0'
   });

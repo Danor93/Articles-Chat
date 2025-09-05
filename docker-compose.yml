@@ -29,7 +29,6 @@ services:
       - "3001:3001"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - QDRANT_URL=http://qdrant:6333
       - NODE_ENV=production
       - PORT=3001
       - ARTICLES_JSON_PATH=/app/data/articles.json
@@ -40,8 +39,8 @@ services:
       - CHUNK_OVERLAP=200
       - MAX_TOKENS=4000
       - TEMPERATURE=0.7
-    depends_on:
-      - qdrant
+      - FAISS_STORE_PATH=/app/data/faiss_store
+      - TRANSFORMERS_CACHE=/app/.cache
     networks:
       - app-network
     volumes:

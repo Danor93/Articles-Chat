@@ -5,7 +5,7 @@ import { Document } from '@langchain/core/documents';
 import { PromptTemplate } from '@langchain/core/prompts';
 import { claudeService } from './claude.service';
 import { embeddingsService } from './embeddings.service';
-import { vectorStoreService } from './vectorstore.service';
+import { faissVectorStoreService } from './faiss-vectorstore.service';
 
 interface ChatMessage {
   role: string;
@@ -31,7 +31,7 @@ export class LangChainService {
 
   async initialize(): Promise<void> {
     try {
-      await vectorStoreService.initialize();
+      await faissVectorStoreService.initialize();
       await this.initializeRAGChain();
       console.log('LangChain service initialized successfully');
     } catch (error) {
@@ -41,7 +41,6 @@ export class LangChainService {
   }
 
   private async initializeRAGChain(): Promise<void> {
-    const vectorStore = vectorStoreService.getVectorStore();
     const llm = claudeService.getLLM();
 
     const condenseQuestionPrompt = PromptTemplate.fromTemplate(`
@@ -63,11 +62,16 @@ Question: {question}
 
 Provide a comprehensive and helpful answer based on the provided articles:`);
 
+    // Get the vector store and create a proper retriever
+    const vectorStore = faissVectorStoreService.getVectorStore();
+    if (!vectorStore) {
+      throw new Error('Vector store not initialized');
+    }
+
     this.ragChain = ConversationalRetrievalQAChain.fromLLM(
       llm,
       vectorStore.asRetriever({
         k: parseInt(process.env.RAG_SEARCH_RESULTS || '4'),
-        searchType: 'similarity',
       }),
       {
         memory: new BufferMemory({
@@ -95,7 +99,8 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
         },
       }));
 
-      const ids = await vectorStoreService.addDocuments(documents);
+      await faissVectorStoreService.addDocuments(documents);
+      const ids = documents.map((_, index) => `${url}_chunk_${index}`);
       console.log(`Processed article ${url} into ${chunks.length} chunks`);
       
       return ids;
@@ -139,11 +144,7 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
         this.conversationHistory[conversationId] = [];
       }
 
-      const retriever = vectorStoreService.getVectorStore().asRetriever({
-        k: parseInt(process.env.RAG_SEARCH_RESULTS || '4'),
-      });
-      
-      const relevantDocs = await retriever.getRelevantDocuments(query);
+      const relevantDocs = await faissVectorStoreService.similaritySearch(query, parseInt(process.env.RAG_SEARCH_RESULTS || '4'));
       const context = relevantDocs.map((doc: Document) => doc.pageContent).join('\n\n');
       
       const messages = claudeService.formatMessagesFromHistory(this.conversationHistory[conversationId]);
@@ -222,7 +223,7 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
     conversations: number;
     totalMessages: number;
   }> {
-    const totalDocuments = await vectorStoreService.getDocumentCount();
+    const totalDocuments = 0; // FAISS doesn't provide direct document count
     const conversations = Object.keys(this.conversationHistory).length;
     const totalMessages = Object.values(this.conversationHistory)
       .reduce((sum, history) => sum + history.length, 0);

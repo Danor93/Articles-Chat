@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { langchainService } from '../services/langchain.service';
-import { vectorStoreService } from '../services/vectorstore.service';
+import { faissVectorStoreService } from '../services/faiss-vectorstore.service';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
@@ -16,8 +16,21 @@ export class StartupLoader {
   private readonly concurrentLimit: number;
 
   constructor() {
-    this.articlesPath = process.env.ARTICLES_JSON_PATH || '/app/data/articles.json';
+    // Use relative path for local development, absolute for Docker
+    const defaultPath = process.env.NODE_ENV === 'production' 
+      ? '/app/data/articles.json' 
+      : path.join(__dirname, '../../../data/articles.json');
+    this.articlesPath = process.env.ARTICLES_JSON_PATH || defaultPath;
     this.concurrentLimit = parseInt(process.env.STARTUP_CONCURRENT_LIMIT || '3');
+  }
+
+  private async checkFaissStoreExists(): Promise<boolean> {
+    const storePath = process.env.FAISS_STORE_PATH || '/app/data/faiss_store';
+    try {
+      return fs.existsSync(path.join(storePath, 'faiss.index'));
+    } catch {
+      return false;
+    }
   }
 
   async initialize(): Promise<void> {
@@ -38,11 +51,11 @@ export class StartupLoader {
 
   private async loadArticlesIfNeeded(): Promise<void> {
     try {
-      const documentCount = await vectorStoreService.getDocumentCount();
-      console.log(`Current documents in vector store: ${documentCount}`);
+      // For FAISS, we'll check if the store exists on disk
+      const storeExists = await this.checkFaissStoreExists();
       
-      if (documentCount > 0) {
-        console.log('📚 Articles already loaded in vector store, skipping startup loading');
+      if (storeExists) {
+        console.log('📚 FAISS store exists, articles already loaded');
         return;
       }
 
