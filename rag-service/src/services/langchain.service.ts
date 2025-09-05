@@ -6,6 +6,7 @@ import { PromptTemplate } from '@langchain/core/prompts';
 import { claudeService } from './claude.service';
 import { embeddingsService } from './embeddings.service';
 import { faissVectorStoreService } from './faiss-vectorstore.service';
+import { promptEngineeringService, type FormattedResponse } from './prompt-engineering.service';
 
 interface ChatMessage {
   role: string;
@@ -110,7 +111,7 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
     }
   }
 
-  async processChat(query: string, conversationId: string = 'default'): Promise<string> {
+  async processChat(query: string, conversationId: string = 'default'): Promise<FormattedResponse> {
     if (!this.ragChain) {
       throw new Error('RAG chain not initialized');
     }
@@ -120,14 +121,32 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
         this.conversationHistory[conversationId] = [];
       }
 
-      const response = await this.ragChain.invoke({
-        question: query,
-        chat_history: this.formatChatHistory(conversationId),
-      });
+      // Classify the question type
+      const questionType = promptEngineeringService.classifyQuestion(query);
+      console.log(`Question classified as: ${questionType.type} (confidence: ${questionType.confidence})`);
 
-      this.addToHistory(conversationId, query, response.text);
+      // Get relevant documents
+      const relevantDocs = await faissVectorStoreService.similaritySearch(query, parseInt(process.env.RAG_SEARCH_RESULTS || '4'));
+      const context = relevantDocs.map((doc: Document) => doc.pageContent).join('\n\n');
+
+      // Generate specialized prompt based on question type
+      const specializedPrompt = promptEngineeringService.generatePrompt(query, questionType, context);
+
+      // Use Claude service directly for better control over the response
+      const messages = claudeService.formatMessagesFromHistory(this.conversationHistory[conversationId]);
+      messages.push({
+        role: 'user',
+        content: specializedPrompt,
+      } as any);
+
+      const rawResponse = await claudeService.generateResponse(messages);
       
-      return response.text;
+      // Format the response based on question type
+      const formattedResponse = promptEngineeringService.formatResponse(rawResponse, questionType, query);
+      
+      this.addToHistory(conversationId, query, formattedResponse.answer);
+      
+      return formattedResponse;
     } catch (error) {
       console.error('Chat processing error:', error);
       throw new Error(`Failed to process chat: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -144,13 +163,21 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
         this.conversationHistory[conversationId] = [];
       }
 
+      // Classify the question type
+      const questionType = promptEngineeringService.classifyQuestion(query);
+      console.log(`Question classified as: ${questionType.type} (confidence: ${questionType.confidence})`);
+
+      // Get relevant documents
       const relevantDocs = await faissVectorStoreService.similaritySearch(query, parseInt(process.env.RAG_SEARCH_RESULTS || '4'));
       const context = relevantDocs.map((doc: Document) => doc.pageContent).join('\n\n');
+
+      // Generate specialized prompt based on question type
+      const specializedPrompt = promptEngineeringService.generatePrompt(query, questionType, context);
       
       const messages = claudeService.formatMessagesFromHistory(this.conversationHistory[conversationId]);
       messages.push({
         role: 'user',
-        content: `Context: ${context}\n\nQuestion: ${query}`,
+        content: specializedPrompt,
       } as any);
 
       const stream = await claudeService.generateStreamingResponse(messages);

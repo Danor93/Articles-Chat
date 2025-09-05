@@ -13,6 +13,9 @@ interface ChatResponse {
   conversationId: string;
   timestamp: string;
   sources?: string[];
+  format?: string;
+  questionType?: string;
+  metadata?: any;
 }
 
 router.post('/', async (req: Request, res: Response): Promise<void> => {
@@ -28,12 +31,16 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
     console.log(`Processing chat query: ${query.substring(0, 100)}...`);
 
-    const response = await langchainService.processChat(query, conversationId);
+    const formattedResponse = await langchainService.processChat(query, conversationId);
 
     const chatResponse: ChatResponse = {
-      response,
+      response: formattedResponse.answer,
       conversationId,
       timestamp: new Date().toISOString(),
+      format: formattedResponse.format,
+      questionType: formattedResponse.metadata?.questionType,
+      sources: formattedResponse.metadata?.sources,
+      metadata: formattedResponse.metadata,
     };
 
     res.json(chatResponse);
