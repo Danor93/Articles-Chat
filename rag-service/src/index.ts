@@ -13,6 +13,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const HOST = process.env.HOST || 'localhost';
 
 app.use(helmet());
 app.use(cors());
@@ -80,7 +81,7 @@ async function startServer() {
     
     app.listen(PORT, () => {
       console.log(`RAG service running on port ${PORT}`);
-      console.log(`Health check: http://localhost:${PORT}/health`);
+      console.log(`Health check: http://${HOST}:${PORT}/health`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);

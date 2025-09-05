@@ -11,6 +11,11 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# Service-specific environment files
+client/.env
+server/.env
+rag-service/.env
+
 # Build outputs
 /client/dist/
 /server/bin/
@@ -65,7 +70,6 @@ rag-service/data/faiss_store/
 # RAG Service - Node.js specific
 rag-service/node_modules/
 rag-service/dist/
-rag-service/.env
 rag-service/npm-debug.log*
 
 # Model downloads and embeddings cache
