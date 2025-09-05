@@ -1,6 +1,6 @@
 services:
   # Go Backend - API Gateway and Orchestrator
-  backend:
+  backend-go:
     build:
       context: .
       dockerfile: server.Dockerfile
@@ -9,18 +9,18 @@ services:
     env_file:
       - ./server/.env
     environment:
-      - RAG_SERVICE_URL=http://rag-service:3001
+      - RAG_SERVICE_URL=http://rag-service-nodejs:3001
       - REDIS_URL=redis://redis:6379
       - GO_ENV=production
     depends_on:
-      - rag-service
+      - rag-service-nodejs
       - redis
     networks:
       - app-network
     restart: unless-stopped
 
   # Node.js RAG Service
-  rag-service:
+  rag-service-nodejs:
     build:
       context: .
       dockerfile: rag-service.Dockerfile
@@ -41,7 +41,7 @@ services:
     restart: unless-stopped
 
   # React Frontend
-  frontend:
+  frontend-react:
     build:
       context: .
       dockerfile: client.Dockerfile
@@ -52,11 +52,10 @@ services:
     environment:
       - VITE_API_URL=http://localhost:8080
     depends_on:
-      - backend
+      - backend-go
     networks:
       - app-network
     restart: unless-stopped
-
 
   # Redis for caching
   redis:
@@ -70,4 +69,3 @@ services:
 networks:
   app-network:
     driver: bridge
-
