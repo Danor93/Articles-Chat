@@ -104,8 +104,11 @@ You are an expert article analyst. Provide a comprehensive summary based on the 
 [Provide a clear, structured summary covering the main points, key findings, and important details from the articles]
 
 ## Key Points
+
 • [First key point]
+
 • [Second key point]
+
 • [Additional key points as needed]
 
 ## Conclusion
@@ -121,17 +124,25 @@ You are an expert content analyzer. Extract and analyze keywords and main topics
 ## Keywords & Topics
 
 ### Primary Keywords
+
 • [Most important keyword 1] - [brief context]
+
 • [Most important keyword 2] - [brief context]
+
 • [Most important keyword 3] - [brief context]
 
 ### Secondary Topics
+
 • [Secondary topic 1]
+
 • [Secondary topic 2]
+
 • [Additional topics as needed]
 
 ### Thematic Categories
+
 • **[Category 1]**: [Related keywords]
+
 • **[Category 2]**: [Related keywords]
 
 Base your analysis solely on the provided context and provide specific examples where possible.`;
@@ -147,12 +158,17 @@ You are an expert sentiment analyst. Analyze the sentiment and tone of the provi
 [Positive/Negative/Neutral/Mixed] - [Confidence level: High/Medium/Low]
 
 ### Detailed Breakdown
+
 • **Tone**: [Objective/Subjective/Optimistic/Pessimistic/etc.]
+
 • **Emotional Indicators**: [Specific phrases or words indicating sentiment]
+
 • **Bias Assessment**: [Any detected bias or perspective]
 
 ### Supporting Evidence
+
 • [Quote or example 1 showing sentiment]
+
 • [Quote or example 2 showing sentiment]
 
 ### Conclusion
@@ -168,15 +184,21 @@ You are an expert comparative analyst. Compare and contrast the articles or topi
 ## Comparative Analysis
 
 ### Key Similarities
+
 • [Similarity 1]: [Details and examples]
+
 • [Similarity 2]: [Details and examples]
 
 ### Key Differences
+
 • [Difference 1]: [Detailed comparison with examples]
+
 • [Difference 2]: [Detailed comparison with examples]
 
 ### Unique Aspects
+
 • **[Article/Topic 1]**: [Unique points]
+
 • **[Article/Topic 2]**: [Unique points]
 
 ### Analysis Summary
@@ -192,17 +214,25 @@ You are an expert article curator. Search through and identify relevant articles
 ## Article Search Results
 
 ### Matching Articles
+
 • **[Article 1 Title/Source]**: [Relevance explanation and key points]
+
 • **[Article 2 Title/Source]**: [Relevance explanation and key points]
+
 • **[Additional articles as found]**
 
 ### Relevance Summary
+
 • **Highly Relevant**: [Number] articles directly addressing the topic
+
 • **Moderately Relevant**: [Number] articles with related content
+
 • **Tangentially Related**: [Number] articles with minor connections
 
 ### Key Themes Found
+
 • [Theme 1]: [Found in which articles]
+
 • [Theme 2]: [Found in which articles]
 
 ### Recommendation
@@ -218,19 +248,27 @@ You are an expert entity extraction analyst. Identify and analyze entities menti
 ## Entity Analysis
 
 ### People
+
 • [Person 1]: [Role/context/frequency of mention]
+
 • [Person 2]: [Role/context/frequency of mention]
 
 ### Organizations/Companies
+
 • [Organization 1]: [Context and significance]
+
 • [Organization 2]: [Context and significance]
 
 ### Locations
+
 • [Location 1]: [Relevance and context]
+
 • [Location 2]: [Relevance and context]
 
 ### Other Important Entities
+
 • [Entity 1]: [Type and significance]
+
 • [Entity 2]: [Type and significance]
 
 ### Most Frequently Mentioned
@@ -239,6 +277,7 @@ You are an expert entity extraction analyst. Identify and analyze entities menti
 3. [Entity name] - [Frequency/context]
 
 ### Entity Relationships
+
 • [Description of how entities relate to each other and the main topics]
 
 Focus on accuracy and provide context for why each entity is significant.`;
@@ -256,7 +295,9 @@ You are a helpful AI assistant for an article chat system. Use the provided cont
 ## Supporting Information
 
 • **Key Points**: [Relevant key points from the articles]
+
 • **Examples**: [Specific examples or quotes when applicable]
+
 • **Context**: [Additional context that helps answer the question]
 
 ## Sources Reference

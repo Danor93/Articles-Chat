@@ -299,9 +299,9 @@ export function ChatInterface({
                                 h2: ({children}) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0">{children}</h2>,
                                 h3: ({children}) => <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0">{children}</h3>,
                                 p: ({children}) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
-                                ul: ({children}) => <ul className="list-disc list-inside space-y-1 my-2">{children}</ul>,
-                                ol: ({children}) => <ol className="list-decimal list-inside space-y-1 my-2">{children}</ol>,
-                                li: ({children}) => <li className="leading-relaxed">{children}</li>,
+                                ul: ({children}) => <ul className="list-disc list-inside space-y-2 my-3">{children}</ul>,
+                                ol: ({children}) => <ol className="list-decimal list-inside space-y-2 my-3">{children}</ol>,
+                                li: ({children}) => <li className="leading-relaxed mb-1 block">{children}</li>,
                                 strong: ({children}) => <strong className="font-semibold">{children}</strong>,
                                 em: ({children}) => <em className="italic">{children}</em>,
                                 code: ({children, className}) => {
@@ -325,7 +325,7 @@ export function ChatInterface({
                             </ReactMarkdown>
                           </div>
                         ) : (
-                          <div className="text-sm break-words">
+                          <div className="text-sm break-words bg-black text-white dark:bg-white dark:text-black p-3 rounded-lg border">
                             {message.content}
                           </div>
                         )}
@@ -465,7 +465,7 @@ export function ChatInterface({
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Ask about the articles... You can paste large text here. Press Enter to send, Shift+Enter for new line"
+              placeholder="Ask about the articles... Press Enter to send, Shift+Enter for new line"
               className="resize-none border-2 focus:border-primary transition-all duration-200 hover:border-primary/50 text-base p-4 pr-16 overflow-hidden leading-6"
               disabled={isLoading}
             />
