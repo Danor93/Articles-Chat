@@ -14,6 +14,8 @@ export interface FormattedResponse {
 }
 
 export class PromptEngineeringService {
+  private articleMetadata: { categories: string[], sources: string[], totalCount: number } | null = null;
+
   private questionPatterns = {
     summary: [
       /\b(summarize|summary|overview|brief|outline|main points?)\b/i,
@@ -90,8 +92,78 @@ export class PromptEngineeringService {
     return Math.min(confidence, 1.0);
   }
 
+  setArticleMetadata(articles: any[]): void {
+    const categories = new Set<string>();
+    const sources = new Set<string>();
+
+    articles.forEach(article => {
+      if (article.category) {
+        categories.add(article.category);
+      }
+      if (article.url) {
+        try {
+          const domain = new URL(article.url).hostname.replace('www.', '');
+          sources.add(domain);
+        } catch {
+          // Skip invalid URLs
+        }
+      }
+    });
+
+    this.articleMetadata = {
+      categories: Array.from(categories),
+      sources: Array.from(sources),
+      totalCount: articles.length
+    };
+  }
+
+  private getArticleOverview(): string {
+    if (!this.articleMetadata) {
+      return "I have access to a collection of articles from various sources covering diverse topics.";
+    }
+
+    const { categories, sources, totalCount } = this.articleMetadata;
+    
+    let overview = `I have access to ${totalCount} articles from various reputable sources`;
+    
+    // Add sources if not too many
+    if (sources.length <= 5) {
+      overview += ` including ${sources.join(', ')}`;
+    } else {
+      overview += ` including ${sources.slice(0, 3).join(', ')}, and ${sources.length - 3} other sources`;
+    }
+    
+    overview += ` covering diverse topics`;
+    
+    // Add categories if not too many
+    if (categories.length <= 8) {
+      overview += ` such as ${categories.join(', ')}`;
+    } else {
+      overview += ` including ${categories.slice(0, 5).join(', ')}, and ${categories.length - 5} other categories`;
+    }
+    
+    return overview + ".";
+  }
+
+  private isIntroductionQuery(query: string): boolean {
+    const introPatterns = [
+      /\b(hello|hi|hey)\b.*\bwhat can you do\b/i,
+      /\bwhat are you capable of\b/i,
+      /\bwhat can you help me with\b/i,
+      /\btell me about yourself\b/i,
+      /\bwhat are your capabilities\b/i,
+      /\bwhat do you do\b/i,
+      /\bhow can you help\b/i,
+      /\bwhat is your purpose\b/i
+    ];
+    
+    return introPatterns.some(pattern => pattern.test(query));
+  }
+
   generatePrompt(query: string, questionType: QuestionType, context: string): string {
-    const baseContext = `Context from Articles:\n${context}\n\n`;
+    // For general introduction queries, don't use specific article context
+    const isIntroductionQuery = this.isIntroductionQuery(query);
+    const baseContext = isIntroductionQuery ? '' : `Context from Articles:\n${context}\n\n`;
     
     switch (questionType.type) {
       case 'summary':
@@ -286,7 +358,26 @@ Focus on accuracy and provide context for why each entity is significant.`;
       default:
         return `${baseContext}User Query: ${query}
 
-You are a helpful AI assistant for an article chat system. Use the provided context to answer the user's question comprehensively and accurately.
+You are an AI assistant for an advanced article analysis and chat system. ${this.getArticleOverview()}
+
+**My Core Capabilities:**
+I can help you with various types of analysis and queries about these articles:
+
+• **Article Summaries**: Provide comprehensive overviews of specific articles or topics
+• **Keyword & Topic Extraction**: Identify main themes, key terms, and central concepts
+• **Sentiment Analysis**: Analyze tone, mood, and perspective of articles or topics
+• **Comparative Analysis**: Compare multiple articles, sources, or viewpoints on similar topics
+• **Entity Recognition**: Identify and analyze people, organizations, locations, and other entities
+• **Thematic Search**: Find articles discussing specific topics (e.g., economic trends, AI developments, etc.)
+• **Source Comparison**: Analyze differences in tone, perspective, or coverage between different sources
+
+**Example Questions I Can Answer:**
+• "What are the key differences in tone between different sources on similar topics?"
+• "Which articles discuss economic trends or business developments?"
+• "What is the sentiment around AI regulation or technology policy in recent articles?"
+• "Who are the most commonly mentioned entities across the articles?"
+• "Compare coverage of specific companies or technologies across different sources"
+• "What are the main topics being discussed in the current article collection?"
 
 ## Response
 

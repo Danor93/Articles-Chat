@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { langchainService } from '../services/langchain.service';
 import { faissVectorStoreService } from '../services/faiss-vectorstore.service';
+import { promptEngineeringService } from '../services/prompt-engineering.service';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
@@ -56,6 +57,10 @@ export class StartupLoader {
       
       if (storeExists) {
         console.log('📚 FAISS store exists, articles already loaded');
+        // Still need to set article metadata for prompt engineering
+        const articles = this.loadArticlesFromFile();
+        promptEngineeringService.setArticleMetadata(articles);
+        console.log('✓ Article metadata set for prompt engineering');
         return;
       }
 
@@ -75,6 +80,10 @@ export class StartupLoader {
       console.warn('⚠️  No articles found in articles.json');
       return;
     }
+
+    // Set article metadata for prompt engineering service
+    promptEngineeringService.setArticleMetadata(articles);
+    console.log('✓ Article metadata set for prompt engineering');
 
     console.log(`📖 Found ${articles.length} articles to process`);
     
