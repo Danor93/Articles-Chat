@@ -89,7 +89,7 @@ func Load() (*Config, error) {
 	// Override with environment variables directly
 	if ragURL := os.Getenv("RAG_SERVICE_URL"); ragURL != "" {
 		config.RAGService.URL = ragURL
-		slog.Info("RAG service URL loaded from environment", "url", ragURL)
+		slog.Info("RAG service URL loaded from environment")
 	}
 	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
 		config.Database.URL = dbURL
@@ -104,11 +104,11 @@ func Load() (*Config, error) {
 		config.Server.Host = host
 	}
 
-	// Debug log the loaded configuration
+	// Debug log the loaded configuration (without sensitive URLs)
 	slog.Info("Configuration loaded",
-		"rag_service_url", config.RAGService.URL,
-		"database_url", config.Database.URL,
-		"server_port", config.Server.Port)
+		"server_port", config.Server.Port,
+		"server_host", config.Server.Host,
+		"environment", config.Server.Environment)
 
 	// Validate required fields
 	if err := validateConfig(&config); err != nil {
@@ -158,10 +158,10 @@ func setDefaults() {
 }
 
 func validateConfig(config *Config) error {
-	// Debug logging
+	// Debug logging (without sensitive URLs)
 	slog.Debug("Config validation", 
-		"rag_service_url", config.RAGService.URL,
-		"database_url", config.Database.URL)
+		"has_rag_service_url", config.RAGService.URL != "",
+		"has_database_url", config.Database.URL != "")
 
 	if config.RAGService.URL == "" {
 		return fmt.Errorf("RAG_SERVICE_URL is required")
