@@ -207,7 +207,7 @@ function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
               transition={{ duration: 0.3 }}
-              className="flex-1 flex flex-col overflow-hidden"
+              className="flex-1 flex flex-col justify-center overflow-hidden container mx-auto px-4 py-16"
             >
               <ChatInterface 
                 messages={messages}
@@ -223,7 +223,7 @@ function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
-              className="container mx-auto px-4 py-8"
+              className="flex-1 flex flex-col justify-center overflow-hidden container mx-auto px-4 py-16"
             >
               <ArticleManager />
             </motion.div>

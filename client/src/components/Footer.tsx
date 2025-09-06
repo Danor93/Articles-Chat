@@ -80,7 +80,7 @@ export function Footer() {
                 </motion.a>
               </TooltipTrigger>
               <TooltipContent>
-                <p>View source code and contribute to this project</p>
+                <p>View source code</p>
               </TooltipContent>
             </Tooltip>
           </div>

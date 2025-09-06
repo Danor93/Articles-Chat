@@ -38,6 +38,34 @@ export function ChatInterface({
     }
   }, [messages]);
 
+  // Initialize textarea height on mount
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = '120px'; // Set initial height
+    }
+  }, []);
+
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      // First, set to minimum height to check if content fits
+      textarea.style.height = '120px';
+      
+      // Check if content overflows the minimum height
+      const scrollHeight = textarea.scrollHeight;
+      const currentHeight = textarea.clientHeight;
+      
+      // Only grow if content actually exceeds the current height
+      if (scrollHeight > currentHeight) {
+        const newHeight = Math.min(400, scrollHeight);
+        textarea.style.height = `${newHeight}px`;
+      }
+      // If content fits in 120px, keep it at 120px (no shrinking, no unnecessary growing)
+    }
+  }, [inputMessage]);
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
@@ -74,12 +102,12 @@ export function ChatInterface({
       if (response.cached) {
         console.log('Response served from cache');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Chat error:', err);
       let errorMessage = 'Failed to send message. Please try again.';
       
-      if (err.response?.data) {
-        const apiError = err.response.data as ApiError;
+      if (err && typeof err === 'object' && 'response' in err && (err as any).response?.data) {
+        const apiError = (err as any).response.data as ApiError;
         switch (apiError.error) {
           case 'VALIDATION_ERROR':
             errorMessage = 'Message validation failed. Please check your input.';
@@ -131,14 +159,19 @@ export function ChatInterface({
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-full max-w-4xl mx-auto">
+      <motion.div 
+        className="flex flex-col h-full w-full max-w-4xl mx-auto min-w-0"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
       {/* Header - Fixed at top */}
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex-shrink-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6 py-4"
+        className="flex-shrink-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 py-3 min-h-[70px]"
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between w-full min-w-0">
           <div className="flex items-center gap-3">
             <div className="relative">
               <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-primary/10 rounded-full blur-sm animate-pulse-subtle" />
@@ -176,8 +209,8 @@ export function ChatInterface({
       {/* Messages Area - Scrollable content */}
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full">
-          <div className="px-6 py-4">
-            <div className="space-y-6 max-w-3xl mx-auto">
+          <div className="px-4 py-4">
+            <div className="space-y-6 w-full max-w-3xl mx-auto min-w-0">
               {messages.length === 0 && (
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -419,37 +452,35 @@ export function ChatInterface({
       </AnimatePresence>
 
       {/* Input Area - Fixed at bottom */}
-      <div className="flex-shrink-0 border-t bg-background px-6 py-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex gap-4 items-start">
-            <motion.div 
-              className="flex-1"
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            >
-              <Textarea
-                ref={textareaRef}
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Ask about the articles... You can paste large text here. Press Enter to send, Shift+Enter for new line"
-                className="h-[120px] max-h-[400px] resize-y border-2 focus:border-primary transition-all duration-200 hover:border-primary/50 text-base p-4 overflow-y-auto"
-                disabled={isLoading}
-                rows={5}
-              />
-            </motion.div>
+      <div className="flex-shrink-0 border-t bg-background px-4 py-4">
+        <div className="w-full max-w-4xl mx-auto min-w-0">
+          <motion.div 
+            className="relative"
+            initial={{ scale: 0.95 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+          >
+            <Textarea
+              ref={textareaRef}
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Ask about the articles... You can paste large text here. Press Enter to send, Shift+Enter for new line"
+              className="resize-none border-2 focus:border-primary transition-all duration-200 hover:border-primary/50 text-base p-4 pr-16 overflow-hidden leading-6"
+              disabled={isLoading}
+            />
             <Tooltip>
               <TooltipTrigger asChild>
                 <motion.div
+                  className="absolute bottom-2 right-2"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
                   <Button
                     onClick={handleSendMessage}
                     disabled={!inputMessage.trim() || isLoading}
-                    size="lg"
-                    className="h-[120px] px-6 relative overflow-hidden group self-end"
+                    size="sm"
+                    className="h-10 w-10 p-0 rounded-full relative overflow-hidden group"
                   >
                     <motion.div
                       className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/10 to-primary/0"
@@ -484,13 +515,13 @@ export function ChatInterface({
                 </motion.div>
               </TooltipTrigger>
               <TooltipContent>
-                <p>{isLoading ? "Processing..." : "Send message (Enter) • Large text supported"}</p>
+                <p>{isLoading ? "Processing..." : "Send message (Enter)"}</p>
               </TooltipContent>
             </Tooltip>
-          </div>
+          </motion.div>
         </div>
       </div>
-    </div>
+    </motion.div>
     </TooltipProvider>
   );
 }

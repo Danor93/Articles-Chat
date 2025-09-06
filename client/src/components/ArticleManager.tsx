@@ -25,12 +25,41 @@ export function ArticleManager() {
   const [success, setSuccess] = useState<string | null>(null);
   const [processedArticles, setProcessedArticles] = useState<ProcessedArticle[]>([]);
 
-  const validateUrl = (url: string): boolean => {
+  const validateUrl = (url: string): { isValid: boolean; message?: string } => {
     try {
       const urlObj = new URL(url);
-      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+      
+      // Check protocol
+      if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+        return { isValid: false, message: 'URL must use HTTP or HTTPS protocol' };
+      }
+      
+      // Check for localhost/IP addresses (usually not articles)
+      if (urlObj.hostname === 'localhost' || 
+          urlObj.hostname.match(/^\d+\.\d+\.\d+\.\d+$/) ||
+          urlObj.hostname.includes('127.0.0.1')) {
+        return { isValid: false, message: 'Local URLs are not supported for article processing' };
+      }
+      
+      // Check for common non-article domains
+      const nonArticleDomains = ['youtube.com', 'youtu.be', 'twitter.com', 'x.com', 'facebook.com', 'instagram.com', 'tiktok.com'];
+      if (nonArticleDomains.some(domain => urlObj.hostname.includes(domain))) {
+        return { isValid: false, message: 'Social media and video platforms are not supported. Please use news or blog article URLs' };
+      }
+      
+      // Check for minimum domain structure
+      if (!urlObj.hostname.includes('.')) {
+        return { isValid: false, message: 'Please enter a complete URL (e.g., https://example.com/article)' };
+      }
+      
+      // Check for path (articles usually have paths)
+      if (urlObj.pathname === '/' || urlObj.pathname === '') {
+        return { isValid: false, message: 'Please provide a link to a specific article, not just the homepage' };
+      }
+      
+      return { isValid: true };
     } catch {
-      return false;
+      return { isValid: false, message: 'Please enter a valid URL format (e.g., https://example.com/article)' };
     }
   };
 
@@ -40,8 +69,9 @@ export function ArticleManager() {
       return;
     }
 
-    if (!validateUrl(url.trim())) {
-      setError('Please enter a valid HTTP or HTTPS URL');
+    const validation = validateUrl(url.trim());
+    if (!validation.isValid) {
+      setError(validation.message || 'Please enter a valid URL');
       return;
     }
 
@@ -79,7 +109,7 @@ export function ArticleManager() {
       }
       
       setUrl('');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Article processing error:', err);
       
       // Update the article status to error
@@ -93,8 +123,8 @@ export function ArticleManager() {
 
       let errorMessage = 'Failed to process article. Please try again.';
       
-      if (err.response?.data) {
-        const apiError = err.response.data as ApiError;
+      if (err && typeof err === 'object' && 'response' in err && (err as any).response?.data) {
+        const apiError = (err as any).response.data as ApiError;
         switch (apiError.error) {
           case 'VALIDATION_ERROR':
             errorMessage = 'Invalid URL format. Please check your input.';
@@ -158,7 +188,7 @@ export function ArticleManager() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <Card className="w-full max-w-4xl mx-auto overflow-hidden shadow-lg">
+        <Card className="w-full overflow-hidden shadow-lg">
           <CardHeader className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
