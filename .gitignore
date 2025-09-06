@@ -77,5 +77,5 @@ rag-service/npm-debug.log*
 *.bin
 *.safetensors
 
-article-chat-implementation-plan.md
-PROJECT_PROGRESS.md
+/docs
+/tests
