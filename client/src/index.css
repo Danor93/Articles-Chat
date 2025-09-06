@@ -184,3 +184,37 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Additional global styles */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar styling */
+[data-radix-scroll-area-viewport]::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+[data-radix-scroll-area-viewport]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.2);
+  border-radius: 9999px;
+}
+
+[data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.3);
+}
+
+/* Prevent text selection on interactive elements */
+button, [role="button"] {
+  user-select: none;
+}
+
+/* Animate presence for framer-motion */
+[data-framer-appear-id] {
+  will-change: transform, opacity;
+}

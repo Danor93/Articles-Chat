@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Plus, Loader2, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Plus, Loader2, ExternalLink, CheckCircle2, AlertCircle, LinkIcon, Sparkles } from 'lucide-react';
 import { articlesApi } from '@/lib/api';
 import type { ApiError } from '@/lib/api';
 
@@ -128,7 +132,7 @@ export function ArticleManager() {
       case 'completed':
         return <CheckCircle2 className="h-4 w-4 text-green-500" />;
       case 'error':
-        return <div className="h-4 w-4 rounded-full bg-red-500" />;
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
       default:
         return null;
     }
@@ -148,120 +152,278 @@ export function ArticleManager() {
   };
 
   return (
-    <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Plus className="h-5 w-5" />
-          Add Articles to Knowledge Base
-        </CardTitle>
-      </CardHeader>
-      
-      <CardContent className="space-y-6">
-        {/* Add Article Form */}
-        <div className="space-y-4">
-          <div className="flex gap-2">
-            <Input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Enter article URL (e.g., https://example.com/article)"
-              disabled={isLoading}
-              className="flex-1"
-            />
-            <Button
-              onClick={handleAddArticle}
-              disabled={!url.trim() || isLoading}
-              size="lg"
+    <TooltipProvider>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <Card className="w-full max-w-4xl mx-auto overflow-hidden shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
             >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Plus className="h-4 w-4 mr-2" />
-              )}
-              Add Article
-            </Button>
-          </div>
-
-          {/* Error Display */}
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* Success Display */}
-          {success && (
-            <Alert className="border-green-200 bg-green-50 text-green-800">
-              <CheckCircle2 className="h-4 w-4" />
-              <AlertDescription>{success}</AlertDescription>
-            </Alert>
-          )}
-        </div>
-
-        {/* Processed Articles List */}
-        {processedArticles.length > 0 && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Recent Articles</h3>
-            <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              {processedArticles.map((article) => (
-                <div
-                  key={`${article.url}-${article.timestamp}`}
-                  className="flex items-center gap-3 p-3 border rounded-lg bg-card"
-                >
-                  <div className="flex-shrink-0">
-                    {getStatusIcon(article.status)}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={article.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-medium text-primary hover:underline truncate max-w-[400px]"
-                        title={article.url}
-                      >
-                        {article.url}
-                      </a>
-                      <ExternalLink className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                    </div>
-                    
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`text-xs ${
-                        article.status === 'completed' ? 'text-green-600' :
-                        article.status === 'processing' ? 'text-yellow-600' :
-                        'text-red-600'
-                      }`}>
-                        {getStatusText(article.status)}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(article.timestamp).toLocaleString()}
-                      </span>
-                    </div>
-                    
-                    {article.message && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {article.message}
-                      </p>
-                    )}
-                  </div>
+              <CardTitle className="flex items-center gap-3">
+                <div className="relative">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                    className="absolute inset-0 bg-gradient-to-r from-primary/20 to-primary/10 rounded-full blur-md"
+                  />
+                  <LinkIcon className="h-6 w-6 relative text-primary" />
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+                Add Articles to Knowledge Base
+                <Badge variant="secondary" className="ml-auto">
+                  <Sparkles className="h-3 w-3 mr-1" />
+                  AI-Powered
+                </Badge>
+              </CardTitle>
+            </motion.div>
+          </CardHeader>
+          
+          <CardContent className="space-y-6 p-6">
+            {/* Add Article Form */}
+            <motion.div 
+              className="space-y-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              <div className="flex gap-2">
+                <motion.div 
+                  className="flex-1"
+                  whileFocus={{ scale: 1.02 }}
+                >
+                  <Input
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Enter article URL (e.g., https://example.com/article)"
+                    disabled={isLoading}
+                    className="h-12 px-4 text-base border-2 transition-all hover:border-primary/50 focus:border-primary"
+                  />
+                </motion.div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <Button
+                        onClick={handleAddArticle}
+                        disabled={!url.trim() || isLoading}
+                        size="lg"
+                        className="h-12 px-6 relative overflow-hidden group"
+                      >
+                        <motion.div
+                          className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/20 to-primary/0"
+                          animate={{ x: ["-100%", "200%"] }}
+                          transition={{ duration: 3, repeat: Infinity, repeatDelay: 1 }}
+                        />
+                        <AnimatePresence mode="wait">
+                          {isLoading ? (
+                            <motion.div
+                              key="loading"
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              exit={{ scale: 0 }}
+                              className="flex items-center gap-2"
+                            >
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Processing
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="add"
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              exit={{ scale: 0 }}
+                              className="flex items-center gap-2 relative z-10"
+                            >
+                              <Plus className="h-4 w-4" />
+                              Add Article
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </Button>
+                    </motion.div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Process and add article to knowledge base</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
 
-        {/* Instructions */}
-        <div className="text-sm text-muted-foreground space-y-2">
-          <p><strong>Instructions:</strong></p>
-          <ul className="space-y-1 ml-4">
-            <li>• Enter any HTTP or HTTPS article URL</li>
-            <li>• The system will fetch and process the article content</li>
-            <li>• Once processed, you can ask questions about the article in the chat</li>
-            <li>• Duplicate URLs will be detected and served from cache</li>
-          </ul>
-        </div>
-      </CardContent>
-    </Card>
+              {/* Error Display */}
+              <AnimatePresence>
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                  >
+                    <Alert variant="destructive" className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Success Display */}
+              <AnimatePresence>
+                {success && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                  >
+                    <Alert className="border-green-200 bg-green-50 dark:bg-green-950/30 text-green-800 dark:text-green-200">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <AlertDescription>{success}</AlertDescription>
+                    </Alert>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+
+            {/* Processed Articles List */}
+            <AnimatePresence>
+              {processedArticles.length > 0 && (
+                <motion.div 
+                  className="space-y-4"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <Separator />
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    Recent Articles
+                    <Badge variant="outline" className="ml-2">
+                      {processedArticles.length}
+                    </Badge>
+                  </h3>
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                    <AnimatePresence>
+                      {processedArticles.map((article, index) => (
+                        <motion.div
+                          key={`${article.url}-${article.timestamp}`}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          transition={{ delay: index * 0.05 }}
+                          whileHover={{ scale: 1.02 }}
+                          className="flex items-center gap-3 p-4 border rounded-lg bg-card hover:bg-accent/50 transition-all"
+                        >
+                          <motion.div 
+                            className="flex-shrink-0"
+                            animate={article.status === 'processing' ? {
+                              scale: [1, 1.2, 1],
+                            } : {}}
+                            transition={{ duration: 1, repeat: Infinity }}
+                          >
+                            {getStatusIcon(article.status)}
+                          </motion.div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={article.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm font-medium text-primary hover:underline truncate max-w-[400px] flex items-center gap-1 group"
+                                title={article.url}
+                              >
+                                {article.url}
+                                <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </a>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge 
+                                variant={
+                                  article.status === 'completed' ? 'default' :
+                                  article.status === 'processing' ? 'secondary' :
+                                  'destructive'
+                                }
+                                className="text-xs px-2 py-0"
+                              >
+                                {getStatusText(article.status)}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(article.timestamp).toLocaleString()}
+                              </span>
+                            </div>
+                            
+                            {article.message && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {article.message}
+                              </p>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Instructions */}
+            <motion.div 
+              className="text-sm text-muted-foreground space-y-2 bg-muted/30 rounded-lg p-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+            >
+              <p className="font-semibold flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Instructions:
+              </p>
+              <ul className="space-y-1.5 ml-6">
+                <motion.li 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.6 }}
+                  className="flex items-start gap-2"
+                >
+                  <span className="text-primary mt-1">•</span>
+                  <span>Enter any HTTP or HTTPS article URL</span>
+                </motion.li>
+                <motion.li 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.7 }}
+                  className="flex items-start gap-2"
+                >
+                  <span className="text-primary mt-1">•</span>
+                  <span>The system will fetch and process the article content using AI</span>
+                </motion.li>
+                <motion.li 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.8 }}
+                  className="flex items-start gap-2"
+                >
+                  <span className="text-primary mt-1">•</span>
+                  <span>Once processed, ask questions about the article in the chat</span>
+                </motion.li>
+                <motion.li 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.9 }}
+                  className="flex items-start gap-2"
+                >
+                  <span className="text-primary mt-1">•</span>
+                  <span>Duplicate URLs will be detected and served from cache instantly</span>
+                </motion.li>
+              </ul>
+            </motion.div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    </TooltipProvider>
   );
 }

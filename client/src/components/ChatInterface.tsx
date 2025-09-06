@@ -1,10 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Send, Loader2, User, Bot, Copy, Check } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Send, Loader2, User, Bot, Copy, Check, Sparkles, AlertCircle } from 'lucide-react';
 import { chatApi } from '@/lib/api';
 import type { ApiError, ChatMessage } from '@/lib/api';
 
@@ -127,19 +130,48 @@ export function ChatInterface({
   };
 
   return (
-    <div className="flex flex-col h-full max-w-4xl mx-auto">
+    <TooltipProvider>
+      <div className="flex flex-col h-full max-w-4xl mx-auto">
       {/* Header - Fixed at top */}
-      <div className="flex-shrink-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6 py-4">
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex-shrink-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6 py-4"
+      >
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Bot className="h-5 w-5" />
-            <h1 className="text-lg font-semibold">Article Chat Assistant</h1>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-primary/10 rounded-full blur-sm animate-pulse-subtle" />
+              <Avatar className="h-10 w-10 relative">
+                <AvatarFallback className="bg-gradient-to-br from-primary/90 to-primary text-primary-foreground">
+                  <Sparkles className="h-5 w-5" />
+                </AvatarFallback>
+              </Avatar>
+            </div>
+            <div>
+              <h1 className="text-lg font-semibold">Article Chat Assistant</h1>
+              <p className="text-xs text-muted-foreground">Powered by Claude AI</p>
+            </div>
           </div>
-          <Button variant="outline" size="sm" onClick={clearChat}>
-            Clear Chat
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={clearChat}
+                  className="transition-all hover:shadow-md"
+                >
+                  Clear Chat
+                </Button>
+              </motion.div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Clear all messages and start a new conversation</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
-      </div>
+      </motion.div>
       
       {/* Messages Area - Scrollable content */}
       <div className="flex-1 overflow-hidden">
@@ -147,28 +179,65 @@ export function ChatInterface({
           <div className="px-6 py-4">
             <div className="space-y-6 max-w-3xl mx-auto">
               {messages.length === 0 && (
-                <div className="text-center text-muted-foreground py-8">
-                  <Bot className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                  <p>Welcome! Ask me anything about the articles in the system.</p>
-                  <p className="text-sm mt-2">You can also add new articles using the form below.</p>
-                </div>
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5 }}
+                  className="text-center text-muted-foreground py-8"
+                >
+                  <motion.div
+                    animate={{ rotate: [0, 5, -5, 0] }}
+                    transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+                  >
+                    <Avatar className="h-20 w-20 mx-auto mb-4">
+                      <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10">
+                        <Bot className="h-10 w-10 text-primary" />
+                      </AvatarFallback>
+                    </Avatar>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <h2 className="text-lg font-medium text-foreground mb-2">Welcome to Article Chat!</h2>
+                    <p className="text-sm">Ask me anything about the articles in the system.</p>
+                    <p className="text-xs mt-2 opacity-80">Pro tip: Use the Articles tab to add new content to chat with.</p>
+                  </motion.div>
+                </motion.div>
               )}
               
-              {messages.map((message, index) => (
-                <div key={index} className="group">
+              <AnimatePresence>
+                {messages.map((message, index) => (
+                  <motion.div 
+                    key={index} 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                    className="group"
+                  >
                   <div className="flex gap-4 w-full">
                     {/* Avatar */}
-                    <div className="flex-shrink-0 mt-1">
-                      {message.role === 'user' ? (
-                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                          <User className="h-4 w-4 text-primary-foreground" />
-                        </div>
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                          <Bot className="h-4 w-4 text-secondary-foreground" />
-                        </div>
-                      )}
-                    </div>
+                    <motion.div 
+                      className="flex-shrink-0 mt-1"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    >
+                      <Avatar className="h-9 w-9">
+                        <AvatarFallback className={message.role === 'user' 
+                          ? "bg-primary text-primary-foreground" 
+                          : "bg-gradient-to-br from-primary/90 to-primary text-primary-foreground"
+                        }>
+                          {message.role === 'user' ? (
+                            <User className="h-4 w-4" />
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
+                        </AvatarFallback>
+                      </Avatar>
+                    </motion.div>
                     
                     {/* Message Content */}
                     <div className="flex-1 min-w-0 space-y-2">
@@ -232,45 +301,98 @@ export function ChatInterface({
                       {/* Message Meta - Timestamp and Actions */}
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         {message.timestamp && (
-                          <span>{new Date(message.timestamp).toLocaleTimeString()}</span>
+                          <span className="opacity-60">{new Date(message.timestamp).toLocaleTimeString()}</span>
                         )}
                         {message.role === 'assistant' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 opacity-0 group-hover:opacity-100 transition-opacity ml-auto"
-                            onClick={() => copyToClipboard(message.content, index)}
-                          >
-                            {copiedMessageId === index.toString() ? (
-                              <Check className="h-3 w-3 text-green-500" />
-                            ) : (
-                              <Copy className="h-3 w-3" />
-                            )}
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: 0.5 }}
+                              >
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 opacity-0 group-hover:opacity-100 transition-all duration-200 ml-auto hover:scale-110"
+                                  onClick={() => copyToClipboard(message.content, index)}
+                                >
+                                  <AnimatePresence mode="wait">
+                                    {copiedMessageId === index.toString() ? (
+                                      <motion.div
+                                        key="check"
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: 1 }}
+                                        exit={{ scale: 0 }}
+                                      >
+                                        <Check className="h-3 w-3 text-green-500" />
+                                      </motion.div>
+                                    ) : (
+                                      <motion.div
+                                        key="copy"
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: 1 }}
+                                        exit={{ scale: 0 }}
+                                      >
+                                        <Copy className="h-3 w-3" />
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </Button>
+                              </motion.div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Copy message</p>
+                            </TooltipContent>
+                          </Tooltip>
                         )}
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
               
-              {isLoading && (
-                <div className="group">
-                  <div className="flex gap-4 w-full">
-                    <div className="flex-shrink-0 mt-1">
-                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                        <Bot className="h-4 w-4 text-secondary-foreground" />
+              <AnimatePresence>
+                {isLoading && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="group"
+                  >
+                    <div className="flex gap-4 w-full">
+                      <motion.div 
+                        className="flex-shrink-0 mt-1"
+                        animate={{ scale: [1, 1.1, 1] }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      >
+                        <Avatar className="h-9 w-9">
+                          <AvatarFallback className="bg-gradient-to-br from-primary/90 to-primary text-primary-foreground">
+                            <Sparkles className="h-4 w-4" />
+                          </AvatarFallback>
+                        </Avatar>
+                      </motion.div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          >
+                            <Loader2 className="h-4 w-4" />
+                          </motion.div>
+                          <motion.span
+                            animate={{ opacity: [0.5, 1, 0.5] }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                          >
+                            Thinking...
+                          </motion.span>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Thinking...</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
               
               {/* Add some padding at the bottom for scroll */}
               <div className="h-4"></div>
@@ -280,42 +402,95 @@ export function ChatInterface({
       </div>
 
       {/* Error Display */}
-      {error && (
-        <div className="flex-shrink-0 px-6 py-2">
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        </div>
-      )}
+      <AnimatePresence>
+        {error && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="flex-shrink-0 px-6 py-2"
+          >
+            <Alert variant="destructive" className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Input Area - Fixed at bottom */}
-      <div className="flex-shrink-0 border-t bg-background px-6 py-4">
-        <div className="max-w-3xl mx-auto">
-          <div className="flex gap-3 items-end">
-            <Textarea
-              ref={textareaRef}
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Ask about the articles... (Press Enter to send, Shift+Enter for new line)"
-              className="min-h-[52px] max-h-[120px] resize-none border-2 focus:border-primary"
-              disabled={isLoading}
-            />
-            <Button
-              onClick={handleSendMessage}
-              disabled={!inputMessage.trim() || isLoading}
-              size="lg"
-              className="h-[52px] px-4"
+      <div className="flex-shrink-0 border-t bg-background px-6 py-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex gap-4 items-start">
+            <motion.div 
+              className="flex-1"
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 500, damping: 30 }}
             >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </Button>
+              <Textarea
+                ref={textareaRef}
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask about the articles... You can paste large text here. Press Enter to send, Shift+Enter for new line"
+                className="h-[120px] max-h-[400px] resize-y border-2 focus:border-primary transition-all duration-200 hover:border-primary/50 text-base p-4 overflow-y-auto"
+                disabled={isLoading}
+                rows={5}
+              />
+            </motion.div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={!inputMessage.trim() || isLoading}
+                    size="lg"
+                    className="h-[120px] px-6 relative overflow-hidden group self-end"
+                  >
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/10 to-primary/0"
+                      animate={{ x: ["-100%", "200%"] }}
+                      transition={{ duration: 3, repeat: Infinity, repeatDelay: 1 }}
+                    />
+                    <AnimatePresence mode="wait">
+                      {isLoading ? (
+                        <motion.div
+                          key="loading"
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1, rotate: 360 }}
+                          exit={{ scale: 0 }}
+                          transition={{ rotate: { duration: 1, repeat: Infinity, ease: "linear" } }}
+                        >
+                          <Loader2 className="h-4 w-4" />
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="send"
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          exit={{ scale: 0 }}
+                          whileHover={{ x: 2, y: -2 }}
+                          className="relative z-10"
+                        >
+                          <Send className="h-4 w-4" />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </Button>
+                </motion.div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{isLoading ? "Processing..." : "Send message (Enter) • Large text supported"}</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
