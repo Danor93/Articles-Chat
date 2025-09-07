@@ -11,7 +11,7 @@ export function Footer() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.5 }}
-      className="border-t bg-background/50 backdrop-blur-xl mt-auto"
+      className="border-t bg-gradient-to-r from-blue-50/80 via-purple-50/80 to-pink-50/80 dark:from-slate-900/80 dark:via-purple-900/30 dark:to-blue-900/30 backdrop-blur-xl mt-auto border-purple-200/50 dark:border-purple-700/50"
     >
       <div className="container mx-auto px-4 py-6">
         <div className="flex flex-col items-center gap-4 md:flex-row md:justify-between">
@@ -19,8 +19,10 @@ export function Footer() {
           <div className="flex flex-col items-center gap-2 md:flex-row md:gap-4">
             <div className="text-center md:text-left">
               <p className="text-sm font-medium flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                Article Chat System
+                <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent font-bold">
+                  Clarticle
+                </span>
               </p>
               <p className="text-xs text-muted-foreground">
                 Hybrid Go + Node.js Architecture with Claude AI
@@ -31,16 +33,16 @@ export function Footer() {
             
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>Built with</span>
-              <Heart className="h-3 w-3 text-red-500 animate-pulse" />
+              <Heart className="h-3 w-3 text-pink-500 animate-pulse drop-shadow-sm" />
               <span>using</span>
-              <Badge variant="secondary" className="text-xs px-2 py-0">
+              <Badge className="text-xs px-2 py-0 bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0">
                 <Code className="h-3 w-3 mr-1" />
                 React
               </Badge>
-              <Badge variant="secondary" className="text-xs px-2 py-0">
+              <Badge className="text-xs px-2 py-0 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0">
                 TypeScript
               </Badge>
-              <Badge variant="secondary" className="text-xs px-2 py-0">
+              <Badge className="text-xs px-2 py-0 bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0">
                 shadcn/ui
               </Badge>
             </div>
@@ -62,7 +64,7 @@ export function Footer() {
         
         <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Danor Sinai. Article Chat System. Powered by Claude AI.
+            © {new Date().getFullYear()} Danor Sinai. Clarticle. Powered by Claude AI.
           </p>
           
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -73,9 +75,9 @@ export function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   whileHover={{ scale: 1.05 }}
-                  className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors"
+                  className="flex items-center gap-1 cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
                 >
-                  <Code className="h-3 w-3" />
+                  <Code className="h-3 w-3 text-purple-600 dark:text-purple-400" />
                   View on GitHub
                 </motion.a>
               </TooltipTrigger>

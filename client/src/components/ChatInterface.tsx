@@ -1,6 +1,6 @@
 // ChatInterface Component - Modern AI Chat Experience
 //
-// This component provides the main chat interface for the Article-Chat system,
+// This component provides the main chat interface for the Clarticle system,
 // implementing a modern ChatGPT/Claude-style conversation experience with advanced
 // animations, markdown rendering, and seamless integration with the backend services.
 //
@@ -257,20 +257,20 @@ export function ChatInterface({
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex-shrink-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 py-3 min-h-[70px]"
+        className="flex-shrink-0 border-b bg-gradient-to-r from-blue-50/90 via-purple-50/90 to-pink-50/90 dark:from-slate-900/90 dark:via-purple-900/30 dark:to-blue-900/30 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 py-3 min-h-[70px] border-purple-200/50 dark:border-purple-700/50"
       >
         <div className="flex items-center justify-between w-full min-w-0">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-primary/10 rounded-full blur-sm animate-pulse-subtle" />
+              <div className="absolute -inset-1 bg-gradient-to-r from-blue-400/30 via-purple-400/30 to-pink-400/30 rounded-full blur-sm animate-pulse-subtle" />
               <Avatar className="h-10 w-10 relative">
-                <AvatarFallback className="bg-gradient-to-br from-primary/90 to-primary text-primary-foreground">
+                <AvatarFallback className="bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-white">
                   <Sparkles className="h-5 w-5" />
                 </AvatarFallback>
               </Avatar>
             </div>
             <div>
-              <h1 className="text-lg font-semibold">Article Chat Assistant</h1>
+              <h1 className="text-lg font-semibold">Clarticle Assistant</h1>
               <p className="text-xs text-muted-foreground">Powered by Claude AI</p>
             </div>
           </div>
@@ -311,8 +311,8 @@ export function ChatInterface({
                     transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
                   >
                     <Avatar className="h-20 w-20 mx-auto mb-4">
-                      <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10">
-                        <Bot className="h-10 w-10 text-primary" />
+                      <AvatarFallback className="bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100 dark:from-blue-900/40 dark:via-purple-900/40 dark:to-pink-900/40">
+                        <Bot className="h-10 w-10 text-purple-600 dark:text-purple-400" />
                       </AvatarFallback>
                     </Avatar>
                   </motion.div>
@@ -321,7 +321,7 @@ export function ChatInterface({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}
                   >
-                    <h2 className="text-lg font-medium text-foreground mb-2">Welcome to Article Chat!</h2>
+                    <h2 className="text-lg font-medium text-foreground mb-2">Welcome to Clarticle!</h2>
                     <p className="text-sm">Ask me anything about the articles in the system.</p>
                     <p className="text-xs mt-2 opacity-80">Pro tip: Use the Articles tab to add new content to chat with.</p>
                   </motion.div>
@@ -348,8 +348,8 @@ export function ChatInterface({
                     >
                       <Avatar className="h-9 w-9">
                         <AvatarFallback className={message.role === 'user' 
-                          ? "bg-primary text-primary-foreground" 
-                          : "bg-gradient-to-br from-primary/90 to-primary text-primary-foreground"
+                          ? "bg-gradient-to-br from-green-500 to-teal-500 text-white" 
+                          : "bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-white"
                         }>
                           {message.role === 'user' ? (
                             <User className="h-4 w-4" />
@@ -413,7 +413,7 @@ export function ChatInterface({
                             </ReactMarkdown>
                           </div>
                         ) : (
-                          <div className="text-sm break-words bg-black text-white dark:bg-white dark:text-black p-3 rounded-lg border">
+                          <div className="text-sm break-words bg-gradient-to-r from-green-100 to-teal-100 dark:from-green-900/40 dark:to-teal-900/40 text-green-800 dark:text-green-200 p-3 rounded-lg border border-green-200 dark:border-green-700">
                             {message.content}
                           </div>
                         )}
@@ -489,7 +489,7 @@ export function ChatInterface({
                         transition={{ duration: 1.5, repeat: Infinity }}
                       >
                         <Avatar className="h-9 w-9">
-                          <AvatarFallback className="bg-gradient-to-br from-primary/90 to-primary text-primary-foreground">
+                          <AvatarFallback className="bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-white">
                             <Sparkles className="h-4 w-4" />
                           </AvatarFallback>
                         </Avatar>
@@ -531,16 +531,16 @@ export function ChatInterface({
             exit={{ opacity: 0, y: -10 }}
             className="flex-shrink-0 px-6 py-2"
           >
-            <Alert variant="destructive" className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+            <Alert variant="destructive" className="flex items-center gap-2 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border-red-200 dark:border-red-800">
+              <AlertCircle className="h-4 w-4 text-red-500" />
+              <AlertDescription className="text-red-700 dark:text-red-300">{error}</AlertDescription>
             </Alert>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Input Area - Fixed at bottom */}
-      <div className="flex-shrink-0 border-t bg-background px-4 py-4">
+      <div className="flex-shrink-0 border-t bg-gradient-to-r from-blue-50/50 via-purple-50/50 to-pink-50/50 dark:from-slate-900/50 dark:via-purple-900/20 dark:to-blue-900/20 px-4 py-4 border-purple-200/50 dark:border-purple-700/50">
         <div className="w-full max-w-4xl mx-auto min-w-0">
           <motion.div 
             className="relative"
@@ -554,7 +554,7 @@ export function ChatInterface({
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Ask about the articles... Press Enter to send, Shift+Enter for new line"
-              className="resize-none border-2 focus:border-primary transition-all duration-200 hover:border-primary/50 text-base p-4 pr-16 overflow-hidden leading-6"
+              className="resize-none border-2 focus:border-purple-500 transition-all duration-200 hover:border-purple-300 text-base p-4 pr-16 overflow-hidden leading-6 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm"
               disabled={isLoading}
             />
             <Tooltip>
@@ -568,7 +568,7 @@ export function ChatInterface({
                     onClick={handleSendMessage}
                     disabled={!inputMessage.trim() || isLoading}
                     size="sm"
-                    className="h-10 w-10 p-0 rounded-full relative overflow-hidden group"
+                    className="h-10 w-10 p-0 rounded-full relative overflow-hidden group bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 border-0 shadow-lg"
                   >
                     <motion.div
                       className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/10 to-primary/0"

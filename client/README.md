@@ -1,6 +1,6 @@
 # React Frontend
 
-The web interface for Article Chat. Built with React, TypeScript, and shadcn/ui components.
+The web interface for Clarticle. Built with React, TypeScript, and shadcn/ui components.
 
 ## What it does
 

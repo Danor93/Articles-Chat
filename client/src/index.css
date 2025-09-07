@@ -218,3 +218,71 @@ button, [role="button"] {
 [data-framer-appear-id] {
   will-change: transform, opacity;
 }
+
+/* Custom animations for vibrant design */
+@keyframes colorful-pulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes rainbow-shift {
+  0% {
+    filter: hue-rotate(0deg);
+  }
+  50% {
+    filter: hue-rotate(180deg);
+  }
+  100% {
+    filter: hue-rotate(360deg);
+  }
+}
+
+@keyframes gradient-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Custom utility classes */
+.animate-colorful-pulse {
+  animation: colorful-pulse 3s ease-in-out infinite;
+}
+
+.animate-rainbow-shift {
+  animation: rainbow-shift 6s linear infinite;
+}
+
+.animate-gradient-flow {
+  background-size: 200% 200%;
+  animation: gradient-flow 4s ease infinite;
+}
+
+/* Enhanced scrollbar with colors */
+[data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, 
+    hsl(var(--muted-foreground) / 0.3),
+    hsl(262 80% 50% / 0.3),
+    hsl(292 80% 50% / 0.3)
+  );
+  border-radius: 9999px;
+}
+
+[data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(45deg, 
+    hsl(var(--muted-foreground) / 0.5),
+    hsl(262 80% 50% / 0.5),
+    hsl(292 80% 50% / 0.5)
+  );
+}

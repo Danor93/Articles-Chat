@@ -41,15 +41,15 @@ function App() {
   }, []);
 
   return (
-    <ThemeProvider defaultTheme="system" storageKey="article-chat-theme">
+    <ThemeProvider defaultTheme="system" storageKey="clarticle-theme">
       <TooltipProvider>
-        <div className="min-h-screen bg-gradient-to-b from-background to-background/95 flex flex-col">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-slate-900 dark:via-purple-900/20 dark:to-blue-900/20 flex flex-col">
       {/* Header */}
       <motion.header 
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ type: "spring", stiffness: 100 }}
-        className="border-b bg-background/50 backdrop-blur-xl sticky top-0 z-50"
+        className="border-b bg-gradient-to-r from-white/80 via-blue-50/80 to-purple-50/80 dark:from-slate-900/80 dark:via-purple-900/40 dark:to-blue-900/40 backdrop-blur-xl sticky top-0 z-50 border-purple-200/50 dark:border-purple-700/50"
       >
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -61,24 +61,25 @@ function App() {
             >
               <div className="relative">
                 <motion.div
-                  className="absolute -inset-2 bg-gradient-to-r from-primary/30 via-primary/20 to-transparent rounded-full blur-xl"
+                  className="absolute -inset-3 bg-gradient-to-r from-blue-400/40 via-purple-400/40 to-pink-400/40 rounded-full blur-xl"
                   animate={{ 
-                    scale: [1, 1.1, 1],
-                    opacity: [0.5, 0.8, 0.5]
+                    scale: [1, 1.2, 1],
+                    opacity: [0.6, 1, 0.6],
+                    rotate: [0, 180, 360]
                   }}
-                  transition={{ duration: 3, repeat: Infinity }}
+                  transition={{ duration: 4, repeat: Infinity }}
                 />
-                <div className="relative bg-gradient-to-br from-primary to-primary/80 p-2 rounded-lg">
-                  <Sparkles className="h-8 w-8 text-primary-foreground" />
+                <div className="relative bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 p-2 rounded-xl shadow-lg">
+                  <Sparkles className="h-8 w-8 text-white" />
                 </div>
               </div>
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                  Article Chat System
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  Clarticle
                 </h1>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   Chat with articles using RAG-powered AI
-                  <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                  <Badge className="text-xs px-1.5 py-0 bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0">
                     Claude AI
                   </Badge>
                 </p>
@@ -90,7 +91,7 @@ function App() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <motion.div 
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 cursor-default"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/30 dark:to-blue-900/30 cursor-default border border-green-200/50 dark:border-green-700/50"
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.2 }}
@@ -102,9 +103,9 @@ function App() {
                       transition={{ duration: 1, repeat: Infinity }}
                     >
                       <Activity className={`h-3.5 w-3.5 transition-colors ${
-                        healthStatus === 'healthy' ? 'text-green-500' :
-                        healthStatus === 'unhealthy' ? 'text-red-500' :
-                        'text-yellow-500'
+                        healthStatus === 'healthy' ? 'text-emerald-500 drop-shadow-sm' :
+                        healthStatus === 'unhealthy' ? 'text-red-500 drop-shadow-sm' :
+                        'text-amber-500 drop-shadow-sm'
                       }`} />
                     </motion.div>
                     <span className="text-xs font-medium">
@@ -136,7 +137,7 @@ function App() {
                         size="sm"
                         onClick={() => setCurrentView('chat')}
                         className={`transition-all duration-300 ${
-                          currentView === 'chat' ? 'shadow-lg shadow-primary/20' : ''
+                          currentView === 'chat' ? 'shadow-lg shadow-blue-500/30 bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0' : 'bg-white/50 hover:bg-white/70 dark:bg-slate-800/50 dark:hover:bg-slate-800/70'
                         }`}
                       >
                         <MessageSquare className="h-4 w-4 mr-2" />
@@ -156,7 +157,7 @@ function App() {
                         size="sm"
                         onClick={() => setCurrentView('articles')}
                         className={`transition-all duration-300 ${
-                          currentView === 'articles' ? 'shadow-lg shadow-primary/20' : ''
+                          currentView === 'articles' ? 'shadow-lg shadow-purple-500/30 bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0' : 'bg-white/50 hover:bg-white/70 dark:bg-slate-800/50 dark:hover:bg-slate-800/70'
                         }`}
                       >
                         <Plus className="h-4 w-4 mr-2" />
@@ -187,9 +188,9 @@ function App() {
               className="flex-shrink-0"
             >
               <div className="container mx-auto px-4 py-4">
-                <Alert variant="destructive" className="border-2">
-                  <Activity className="h-4 w-4" />
-                  <AlertDescription>
+                <Alert variant="destructive" className="border-2 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border-red-200 dark:border-red-800">
+                  <Activity className="h-4 w-4 text-red-500" />
+                  <AlertDescription className="text-red-700 dark:text-red-300">
                     Unable to connect to the backend service. Please ensure the server is running and try refreshing the page.
                   </AlertDescription>
                 </Alert>

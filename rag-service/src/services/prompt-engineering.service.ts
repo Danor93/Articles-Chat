@@ -191,7 +191,10 @@ export class PromptEngineeringService {
       /\bwhat are your capabilities\b/i,
       /\bwhat do you do\b/i,
       /\bhow can you help\b/i,
-      /\bwhat is your purpose\b/i
+      /\bwhat is your purpose\b/i,
+      /\bwho are you\b/i,
+      /\bwho r you\b/i,
+      /\bwhat are you\b/i
     ];
     
     return introPatterns.some(pattern => pattern.test(query));
@@ -499,10 +502,12 @@ CRITICAL: Extract ONLY entities that are actually mentioned in the provided arti
       default:
         return `${baseContext}User Query: ${query}
 
-You are an AI assistant for an advanced article analysis and chat system. ${this.getArticleOverview()}
+I'm Clarticle, your AI article analysis assistant powered by Claude AI. I'm designed to provide clear, intelligent insights about articles using Retrieval-Augmented Generation (RAG) technology.
 
-**My Core Capabilities:**
-I can help you with various types of analysis and queries about these articles:
+${this.getArticleOverview()}
+
+**As Clarticle, my core capabilities include:**
+I specialize in helping you analyze and chat about articles with crystal-clear responses. Here's what I can do:
 
 • **Article Summaries**: Provide comprehensive overviews of specific articles or topics
 • **Keyword & Topic Extraction**: Identify main themes, key terms, and central concepts

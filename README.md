@@ -1,21 +1,21 @@
-# Article Chat - AI-Powered RAG Chat System
+# Clarticle - AI-Powered RAG Chat System
 
-A RAG (Retrieval-Augmented Generation) chat system that enables intelligent conversations about your article collection using Claude AI.
+Clarticle is a RAG (Retrieval-Augmented Generation) chat system that enables intelligent conversations about your article collection using Claude AI.
 
 ## 🏗️ Architecture Overview
 
-Article Chat uses a hybrid microservices architecture combining Go and Node.js for optimal performance:
+Clarticle uses a hybrid microservices architecture combining Go and Node.js for optimal performance:
 
 ```mermaid
 %%{init: {'flowchart': {'htmlLabels': false}, 'securityLevel': 'loose'}}%%
 graph TD
-    subgraph "Frontend"
+    subgraph "Clarticle Frontend"
         A[React Client]
     end
 
     A --> |HTTP/API| B
 
-    subgraph "Backend Services"
+    subgraph "Clarticle Backend Services"
         B[Go API Gateway]
         B --> |HTTP| C
         B --> |Cache| D[Redis Cache]

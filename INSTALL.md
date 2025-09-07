@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide will help you get Article Chat up and running on your local machine.
+This guide will help you get Clarticle up and running on your local machine.
 
 ## Prerequisites
 
@@ -17,7 +17,7 @@ cd Article-Chat
 
 ## Step 2: Configure Environment Variables
 
-Article Chat uses service-specific environment files. You need to create `.env` files for each service:
+Clarticle uses service-specific environment files. You need to create `.env` files for each service:
 
 ### 1. Backend Service (Go API Gateway)
 ```bash
@@ -165,3 +165,5 @@ docker-compose down -v
 1. **Add Articles**: Use the "Add Articles" tab to add URLs to your knowledge base
 2. **Start Chatting**: Ask questions about the articles you've added
 3. **Explore Features**: Try the theme toggle, check response caching, test concurrent requests
+
+Now you're ready to use Clarticle! Open http://localhost:3000 and start chatting with your articles.

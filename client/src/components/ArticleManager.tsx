@@ -158,11 +158,11 @@ export function ArticleManager() {
   const getStatusIcon = (status: ProcessedArticle['status']) => {
     switch (status) {
       case 'processing':
-        return <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />;
+        return <Loader2 className="h-4 w-4 animate-spin text-amber-500 drop-shadow-sm" />;
       case 'completed':
-        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+        return <CheckCircle2 className="h-4 w-4 text-emerald-500 drop-shadow-sm" />;
       case 'error':
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
+        return <AlertCircle className="h-4 w-4 text-red-500 drop-shadow-sm" />;
       default:
         return null;
     }
@@ -188,8 +188,8 @@ export function ArticleManager() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <Card className="w-full overflow-hidden shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
+        <Card className="w-full overflow-hidden shadow-lg bg-gradient-to-br from-white via-blue-50/30 to-purple-50/30 dark:from-slate-900 dark:via-purple-900/10 dark:to-blue-900/10 border border-purple-200/50 dark:border-purple-700/50">
+          <CardHeader className="bg-gradient-to-r from-blue-100 via-purple-100 to-pink-100 dark:from-blue-900/40 dark:via-purple-900/40 dark:to-pink-900/40">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -200,12 +200,12 @@ export function ArticleManager() {
                   <motion.div
                     animate={{ rotate: 360 }}
                     transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                    className="absolute inset-0 bg-gradient-to-r from-primary/20 to-primary/10 rounded-full blur-md"
+                    className="absolute inset-0 bg-gradient-to-r from-blue-400/30 via-purple-400/30 to-pink-400/30 rounded-full blur-md"
                   />
-                  <LinkIcon className="h-6 w-6 relative text-primary" />
+                  <LinkIcon className="h-6 w-6 relative text-purple-600 dark:text-purple-400" />
                 </div>
-                Add Articles to Knowledge Base
-                <Badge variant="secondary" className="ml-auto">
+                Add Articles to Clarticle
+                <Badge className="ml-auto bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0">
                   <Sparkles className="h-3 w-3 mr-1" />
                   AI-Powered
                 </Badge>
@@ -232,7 +232,7 @@ export function ArticleManager() {
                     onKeyPress={handleKeyPress}
                     placeholder="Enter article URL (e.g., https://example.com/article)"
                     disabled={isLoading}
-                    className="h-12 px-4 text-base border-2 transition-all hover:border-primary/50 focus:border-primary"
+                    className="h-12 px-4 text-base border-2 transition-all hover:border-purple-300 focus:border-purple-500 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm"
                   />
                 </motion.div>
                 <Tooltip>
@@ -245,10 +245,10 @@ export function ArticleManager() {
                         onClick={handleAddArticle}
                         disabled={!url.trim() || isLoading}
                         size="lg"
-                        className="h-12 px-6 relative overflow-hidden group"
+                        className="h-12 px-6 relative overflow-hidden group bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 border-0 shadow-lg"
                       >
                         <motion.div
-                          className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/20 to-primary/0"
+                          className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0"
                           animate={{ x: ["-100%", "200%"] }}
                           transition={{ duration: 3, repeat: Infinity, repeatDelay: 1 }}
                         />
@@ -294,9 +294,9 @@ export function ArticleManager() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                   >
-                    <Alert variant="destructive" className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{error}</AlertDescription>
+                    <Alert variant="destructive" className="flex items-center gap-2 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border-red-200 dark:border-red-800">
+                      <AlertCircle className="h-4 w-4 text-red-500" />
+                      <AlertDescription className="text-red-700 dark:text-red-300">{error}</AlertDescription>
                     </Alert>
                   </motion.div>
                 )}
@@ -310,9 +310,9 @@ export function ArticleManager() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                   >
-                    <Alert className="border-green-200 bg-green-50 dark:bg-green-950/30 text-green-800 dark:text-green-200">
-                      <CheckCircle2 className="h-4 w-4" />
-                      <AlertDescription>{success}</AlertDescription>
+                    <Alert className="border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 text-green-800 dark:text-green-200">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      <AlertDescription className="text-green-700 dark:text-green-300">{success}</AlertDescription>
                     </Alert>
                   </motion.div>
                 )}
@@ -345,7 +345,7 @@ export function ArticleManager() {
                           exit={{ opacity: 0, x: 20 }}
                           transition={{ delay: index * 0.05 }}
                           whileHover={{ scale: 1.02 }}
-                          className="flex items-center gap-3 p-4 border rounded-lg bg-card hover:bg-accent/50 transition-all"
+                          className="flex items-center gap-3 p-4 border rounded-lg bg-gradient-to-r from-white/80 to-blue-50/50 dark:from-slate-800/80 dark:to-purple-900/30 hover:from-blue-50/80 hover:to-purple-50/80 dark:hover:from-slate-700/80 dark:hover:to-purple-800/40 transition-all border-blue-200/50 dark:border-purple-700/50"
                         >
                           <motion.div 
                             className="flex-shrink-0"
@@ -373,12 +373,11 @@ export function ArticleManager() {
                             
                             <div className="flex items-center gap-2 mt-1">
                               <Badge 
-                                variant={
-                                  article.status === 'completed' ? 'default' :
-                                  article.status === 'processing' ? 'secondary' :
-                                  'destructive'
-                                }
-                                className="text-xs px-2 py-0"
+                                className={`text-xs px-2 py-0 ${
+                                  article.status === 'completed' ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white border-0' :
+                                  article.status === 'processing' ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-white border-0' :
+                                  'bg-gradient-to-r from-red-500 to-pink-500 text-white border-0'
+                                }`}
                               >
                                 {getStatusText(article.status)}
                               </Badge>
@@ -403,13 +402,13 @@ export function ArticleManager() {
 
             {/* Instructions */}
             <motion.div 
-              className="text-sm text-muted-foreground space-y-2 bg-muted/30 rounded-lg p-4"
+              className="text-sm text-muted-foreground space-y-2 bg-gradient-to-r from-blue-50/80 via-purple-50/80 to-pink-50/80 dark:from-blue-900/30 dark:via-purple-900/30 dark:to-pink-900/30 rounded-lg p-4 border border-purple-200/50 dark:border-purple-700/50"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5 }}
             >
               <p className="font-semibold flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
+                <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                 Instructions:
               </p>
               <ul className="space-y-1.5 ml-6">
@@ -419,7 +418,7 @@ export function ArticleManager() {
                   transition={{ delay: 0.6 }}
                   className="flex items-start gap-2"
                 >
-                  <span className="text-primary mt-1">•</span>
+                  <span className="text-purple-500 mt-1">•</span>
                   <span>Enter any HTTP or HTTPS article URL</span>
                 </motion.li>
                 <motion.li 
@@ -428,7 +427,7 @@ export function ArticleManager() {
                   transition={{ delay: 0.7 }}
                   className="flex items-start gap-2"
                 >
-                  <span className="text-primary mt-1">•</span>
+                  <span className="text-purple-500 mt-1">•</span>
                   <span>The system will fetch and process the article content using AI</span>
                 </motion.li>
                 <motion.li 
@@ -437,7 +436,7 @@ export function ArticleManager() {
                   transition={{ delay: 0.8 }}
                   className="flex items-start gap-2"
                 >
-                  <span className="text-primary mt-1">•</span>
+                  <span className="text-purple-500 mt-1">•</span>
                   <span>Once processed, ask questions about the article in the chat</span>
                 </motion.li>
                 <motion.li 
@@ -446,7 +445,7 @@ export function ArticleManager() {
                   transition={{ delay: 0.9 }}
                   className="flex items-start gap-2"
                 >
-                  <span className="text-primary mt-1">•</span>
+                  <span className="text-purple-500 mt-1">•</span>
                   <span>Duplicate URLs will be detected and served from cache instantly</span>
                 </motion.li>
               </ul>
