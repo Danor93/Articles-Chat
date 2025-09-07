@@ -125,9 +125,19 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
       const questionType = promptEngineeringService.classifyQuestion(query);
       console.log(`Question classified as: ${questionType.type} (confidence: ${questionType.confidence})`);
 
-      // Get relevant documents
-      const relevantDocs = await faissVectorStoreService.similaritySearch(query, parseInt(process.env.RAG_SEARCH_RESULTS || '4'));
-      const context = relevantDocs.map((doc: Document) => doc.pageContent).join('\n\n');
+      // Get relevant documents with scores
+      const relevantDocsWithScores = await faissVectorStoreService.similaritySearchWithScore(query, parseInt(process.env.RAG_SEARCH_RESULTS || '4'));
+      const context = relevantDocsWithScores.map(([doc]) => doc.pageContent).join('\n\n');
+
+      // Build structured sources from relevant documents
+      const sources = relevantDocsWithScores.map(([doc, score], index) => ({
+        article_id: doc.metadata.source || 'unknown',
+        article_title: this.extractTitleFromUrl(doc.metadata.source || ''),
+        chunk_id: `${doc.metadata.source}_chunk_${doc.metadata.chunk_index || index}`,
+        content: doc.pageContent.substring(0, 200) + '...', // Truncate for size
+        relevance: Math.round((1 - score) * 100) / 100, // Convert distance to relevance (lower distance = higher relevance)
+        position: index
+      }));
 
       // Generate specialized prompt based on question type
       const specializedPrompt = promptEngineeringService.generatePrompt(query, questionType, context);
@@ -141,8 +151,17 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
 
       const rawResponse = await claudeService.generateResponse(messages);
       
-      // Format the response based on question type
+      // Format the response based on question type and include sources
       const formattedResponse = promptEngineeringService.formatResponse(rawResponse, questionType, query);
+      
+      // Add sources to metadata
+      formattedResponse.metadata = {
+        ...formattedResponse.metadata,
+        questionType: formattedResponse.metadata?.questionType || questionType.type,
+        sources,
+        tokensUsed: 0, // Claude service would need to provide this
+        processingTime: Date.now() - Date.now() // This should be calculated properly
+      };
       
       this.addToHistory(conversationId, query, formattedResponse.answer);
       
@@ -264,6 +283,23 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
 
   isInitialized(): boolean {
     return !!this.ragChain && faissVectorStoreService.isHealthy() && claudeService.isConfigured();
+  }
+
+  private extractTitleFromUrl(url: string): string {
+    try {
+      // Extract meaningful title from URL path
+      const urlPath = new URL(url).pathname;
+      const segments = urlPath.split('/').filter(s => s.length > 0);
+      const lastSegment = segments[segments.length - 1];
+      
+      // Convert URL-style text to readable title
+      return lastSegment
+        .replace(/[-_]/g, ' ')
+        .replace(/\b\w/g, l => l.toUpperCase())
+        .substring(0, 100); // Limit length
+    } catch {
+      return 'Unknown Article';
+    }
   }
 }
 

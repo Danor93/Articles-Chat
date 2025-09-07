@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { langchainService } from '../services/langchain.service';
 import { vectorStoreService } from '../services/vectorstore.service';
+import { promptEngineeringService } from '../services/prompt-engineering.service';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { asyncHandler } from '../middleware/error-handler';
@@ -108,6 +109,9 @@ router.post('/process',
 
     const ids = await langchainService.processArticle(url, content);
 
+    // Update article count in prompt engineering service
+    promptEngineeringService.incrementArticleCount(url);
+
     res.json({
       message: 'Article processed successfully',
       url,
@@ -174,6 +178,9 @@ async function processBatchAsync(urls: string[]): Promise<void> {
           
           const { content } = await fetchArticleContent(url);
           await langchainService.processArticle(url, content);
+          
+          // Update article count in prompt engineering service
+          promptEngineeringService.incrementArticleCount(url);
           
           processingStatus.processed++;
           console.log(`✓ Completed: ${url}`);

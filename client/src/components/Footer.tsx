@@ -62,7 +62,7 @@ export function Footer() {
         
         <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
           <p className="text-xs text-muted-foreground">
-            © 2025 Article Chat System. Powered by Claude AI.
+            © {new Date().getFullYear()} Danor Sinai. Article Chat System. Powered by Claude AI.
           </p>
           
           <div className="flex items-center gap-2 text-xs text-muted-foreground">

@@ -3,12 +3,23 @@ export interface QuestionType {
   confidence: number;
 }
 
+interface ChunkSource {
+  article_id: string;
+  article_title: string;
+  chunk_id: string;
+  content: string;
+  relevance: number;
+  position: number;
+}
+
 export interface FormattedResponse {
   answer: string;
   format: string;
   metadata?: {
     questionType: string;
-    sources?: string[];
+    sources?: ChunkSource[];
+    tokensUsed?: number;
+    processingTime?: number;
     extractedData?: any;
   };
 }
@@ -117,6 +128,32 @@ export class PromptEngineeringService {
     };
   }
 
+  incrementArticleCount(newArticleUrl: string): void {
+    if (!this.articleMetadata) {
+      this.articleMetadata = {
+        categories: [],
+        sources: [],
+        totalCount: 1
+      };
+    } else {
+      this.articleMetadata.totalCount++;
+    }
+
+    // Try to add the new source domain
+    try {
+      const domain = new URL(newArticleUrl).hostname.replace('www.', '');
+      if (!this.articleMetadata.sources.includes(domain)) {
+        this.articleMetadata.sources.push(domain);
+        console.log(`✓ Added new source domain: ${domain}`);
+        console.log(`✓ Updated article count: ${this.articleMetadata.totalCount} articles from ${this.articleMetadata.sources.length} sources`);
+      } else {
+        console.log(`✓ Article count updated: ${this.articleMetadata.totalCount} articles (existing source: ${domain})`);
+      }
+    } catch (error) {
+      console.warn(`Could not extract domain from URL: ${newArticleUrl}`, error);
+    }
+  }
+
   private getArticleOverview(): string {
     if (!this.articleMetadata) {
       return "I have access to a collection of articles from various sources covering diverse topics.";
@@ -177,182 +214,286 @@ You are an expert article analyst. Provide a comprehensive summary based on the 
 
 ## Key Points
 
-• [First key point]
+• [First key point with supporting details]
 
-• [Second key point]
+• [Second key point with supporting details]
 
 • [Additional key points as needed]
+
+## Key Sentences from the Article
+
+• "[Direct quote 1 - exact sentence from the article]"
+
+• "[Direct quote 2 - exact sentence from the article]"
+
+• "[Direct quote 3 - exact sentence from the article]"
+
+• "[Additional important sentences as needed]"
 
 ## Conclusion
 [Brief conclusion highlighting the most important takeaways]
 
-Please ensure your summary is accurate, well-organized, and based solely on the provided context.`;
+IMPORTANT: Include actual sentences and quotes directly from the provided context. Base your analysis entirely on the article content provided and include specific examples and direct quotes to support each point.`;
 
       case 'keywords':
         return `${baseContext}User Query: ${query}
 
-You are an expert content analyzer. Extract and analyze keywords and main topics from the provided articles. Structure your response as follows:
+You are an expert content analyzer. Extract and analyze keywords and main topics directly from the provided articles. Structure your response as follows:
 
-## Keywords & Topics
+## Keywords & Topics Analysis
 
-### Primary Keywords
+### Primary Keywords (from article text)
 
-• [Most important keyword 1] - [brief context]
+• **[Keyword 1]** - "[Direct quote where this keyword appears]" (appears X times)
 
-• [Most important keyword 2] - [brief context]
+• **[Keyword 2]** - "[Direct quote where this keyword appears]" (appears X times)  
 
-• [Most important keyword 3] - [brief context]
+• **[Keyword 3]** - "[Direct quote where this keyword appears]" (appears X times)
 
-### Secondary Topics
+### Main Topics Discussed
 
-• [Secondary topic 1]
+• **[Topic 1]**: "[Specific excerpt from article discussing this topic]"
 
-• [Secondary topic 2]
+• **[Topic 2]**: "[Specific excerpt from article discussing this topic]"
 
-• [Additional topics as needed]
+• **[Topic 3]**: "[Specific excerpt from article discussing this topic]"
+
+### Key Entities Mentioned
+
+• **People**: [Names found in articles] - "[Quote mentioning them]"
+
+• **Organizations**: [Companies/orgs found] - "[Quote mentioning them]"
+
+• **Locations**: [Places mentioned] - "[Quote mentioning them]"
 
 ### Thematic Categories
 
-• **[Category 1]**: [Related keywords]
+• **[Category 1]**: [Keywords found] - "[Supporting quotes from articles]"
 
-• **[Category 2]**: [Related keywords]
+• **[Category 2]**: [Keywords found] - "[Supporting quotes from articles]"
 
-Base your analysis solely on the provided context and provide specific examples where possible.`;
+CRITICAL: Extract everything directly from the provided article context. Include actual quotes and specific references. Do not generate generic keywords.`;
 
       case 'sentiment':
         return `${baseContext}User Query: ${query}
 
-You are an expert sentiment analyst. Analyze the sentiment and tone of the provided articles. Structure your response as follows:
+You are an expert sentiment analyst. Analyze the sentiment and tone of the provided articles using ONLY the actual article content. Structure your response as follows:
 
 ## Sentiment Analysis
 
 ### Overall Sentiment
-[Positive/Negative/Neutral/Mixed] - [Confidence level: High/Medium/Low]
+[Positive/Negative/Neutral/Mixed] - Confidence: [High/Medium/Low]
 
-### Detailed Breakdown
+**Evidence**: "[Direct quote from article that supports this sentiment assessment]"
 
-• **Tone**: [Objective/Subjective/Optimistic/Pessimistic/etc.]
+### Article-by-Article Breakdown
 
-• **Emotional Indicators**: [Specific phrases or words indicating sentiment]
+• **Article 1** ([Source name]): [Sentiment] 
+  - **Quote**: "[Specific sentence showing this sentiment]"
+  - **Language indicators**: [Actual words/phrases from text]
 
-• **Bias Assessment**: [Any detected bias or perspective]
+• **Article 2** ([Source name]): [Sentiment]
+  - **Quote**: "[Specific sentence showing this sentiment]"  
+  - **Language indicators**: [Actual words/phrases from text]
 
-### Supporting Evidence
+### Tone Analysis
 
-• [Quote or example 1 showing sentiment]
+• **Writing Style**: [Based on actual article language] - "[Quote example]"
 
-• [Quote or example 2 showing sentiment]
+• **Emotional Language**: "[Direct quotes showing emotional language]"
 
-### Conclusion
-[Summary of overall sentiment with confidence assessment]
+• **Bias Indicators**: "[Specific phrases showing potential bias]"
 
-Provide specific examples and quotes to support your analysis.`;
+### Comparative Sentiment (if multiple articles)
+
+• **Most Positive**: "[Article name]" - "[Quote showing positivity]"
+
+• **Most Negative**: "[Article name]" - "[Quote showing negativity]"
+
+• **Most Neutral/Objective**: "[Article name]" - "[Quote showing objectivity]"
+
+### Key Sentiment Phrases Found
+
+• "[Actual positive phrase from article]" - Positive indicator
+• "[Actual negative phrase from article]" - Negative indicator  
+• "[Actual neutral phrase from article]" - Neutral indicator
+
+CRITICAL: Base ALL analysis on actual quotes and phrases from the provided articles. Reference specific article sources. Do not generate hypothetical sentiment analysis.`;
 
       case 'comparison':
         return `${baseContext}User Query: ${query}
 
-You are an expert comparative analyst. Compare and contrast the articles or topics based on the provided context. Structure your response as follows:
+You are an expert comparative analyst. Compare and contrast the articles based on the provided context using ONLY actual article content. Structure your response as follows:
 
 ## Comparative Analysis
 
-### Key Similarities
+### Articles Being Compared
+• **Article 1**: "[Article title/source]" - "[Brief description from content]"
+• **Article 2**: "[Article title/source]" - "[Brief description from content]"
 
-• [Similarity 1]: [Details and examples]
+### Content Similarities
 
-• [Similarity 2]: [Details and examples]
+• **[Similarity 1]**: 
+  - Article 1: "[Direct quote supporting this similarity]"
+  - Article 2: "[Direct quote supporting this similarity]"
 
-### Key Differences
+• **[Similarity 2]**:
+  - Article 1: "[Direct quote supporting this similarity]"
+  - Article 2: "[Direct quote supporting this similarity]"
 
-• [Difference 1]: [Detailed comparison with examples]
+### Key Content Differences
 
-• [Difference 2]: [Detailed comparison with examples]
+• **[Difference 1]**: 
+  - Article 1: "[Quote showing first perspective]"
+  - Article 2: "[Quote showing contrasting perspective]"
 
-### Unique Aspects
+• **[Difference 2]**:
+  - Article 1: "[Quote showing first approach]"
+  - Article 2: "[Quote showing different approach]"
 
-• **[Article/Topic 1]**: [Unique points]
+### Tone & Style Comparison
 
-• **[Article/Topic 2]**: [Unique points]
+• **[Source 1] Tone**: [Objective/Opinion/etc.] - "[Quote demonstrating tone]"
 
-### Analysis Summary
-[Overall assessment of similarities, differences, and significance]
+• **[Source 2] Tone**: [Objective/Opinion/etc.] - "[Quote demonstrating tone]"
 
-Provide specific examples and quotes to support your comparative analysis.`;
+• **Key Differences in Language**: "[Specific examples of language differences]"
+
+### Source Perspective Analysis
+
+• **[Source 1] Focus**: "[What this source emphasizes]" - "[Supporting quote]"
+
+• **[Source 2] Focus**: "[What this source emphasizes]" - "[Supporting quote]"
+
+### Unique Information
+
+• **Only in [Article 1]**: "[Unique information found]" - "[Quote]"
+
+• **Only in [Article 2]**: "[Unique information found]" - "[Quote]"
+
+### Conclusion
+[Analysis based on actual content differences and similarities found]
+
+CRITICAL: Compare only what is actually in the provided articles. Use direct quotes and specific references. Identify actual tone differences between sources using their actual language.`;
 
       case 'search':
         return `${baseContext}User Query: ${query}
 
-You are an expert article curator. Search through and identify relevant articles based on the query. Structure your response as follows:
+You are an expert article search analyst. Search through the provided articles to find content matching the query. Use ONLY the actual article content provided. Structure your response as follows:
 
-## Article Search Results
+## Search Results: "${query}"
 
-### Matching Articles
+### Articles Found
 
-• **[Article 1 Title/Source]**: [Relevance explanation and key points]
+• **[Article Title/Source]**: 
+  - **Relevance**: [High/Medium/Low] - [Why it matches]
+  - **Key Quote**: "[Direct quote from article that matches the search]"  
+  - **Context**: "[Additional relevant excerpt]"
 
-• **[Article 2 Title/Source]**: [Relevance explanation and key points]
+• **[Article Title/Source]**:
+  - **Relevance**: [High/Medium/Low] - [Why it matches]
+  - **Key Quote**: "[Direct quote from article that matches the search]"
+  - **Context**: "[Additional relevant excerpt]"
 
-• **[Additional articles as found]**
+### Topic Analysis
 
-### Relevance Summary
+• **Main Theme Found**: "[What the search query is actually about in these articles]"
 
-• **Highly Relevant**: [Number] articles directly addressing the topic
+• **Key Terms Mentioned**: [Actual terms found in articles] - "[Quotes containing these terms]"
 
-• **Moderately Relevant**: [Number] articles with related content
+• **Specific Details**: 
+  - "[Specific fact/data from articles]"
+  - "[Another specific fact/data from articles]"
 
-• **Tangentially Related**: [Number] articles with minor connections
+### Comparative Assessment (for evaluative queries)
 
-### Key Themes Found
+• **Most Positive**: "[Article name]" - "[Quote showing positive stance]"
 
-• [Theme 1]: [Found in which articles]
+• **Most Negative**: "[Article name]" - "[Quote showing negative stance]"
 
-• [Theme 2]: [Found in which articles]
+• **Most Detailed**: "[Article name]" - "[Quote showing detailed coverage]"
 
-### Recommendation
-[Which articles best answer the user's query and why]
+### Direct Answers from Articles
 
-Focus on providing accurate article identification and relevance assessment.`;
+• **Question**: ${query}
+• **Answer**: "[Direct information from articles answering this question]"
+• **Sources**: "[Which specific articles provided this information]"
+
+### Supporting Evidence
+
+• "[Quote 1 supporting the findings]" - (Source: [Article name])
+• "[Quote 2 supporting the findings]" - (Source: [Article name])
+• "[Quote 3 supporting the findings]" - (Source: [Article name])
+
+CRITICAL: Only report what is actually found in the provided articles. Use direct quotes and specific references. For queries like "Which article is more positive about X?" - compare actual language used. For "What articles discuss Y?" - only list articles that actually mention the topic with quotes as evidence.`;
 
       case 'entities':
         return `${baseContext}User Query: ${query}
 
-You are an expert entity extraction analyst. Identify and analyze entities mentioned in the articles. Structure your response as follows:
+You are an expert entity extraction analyst. Extract and analyze entities mentioned in the provided articles using ONLY the actual article content. Structure your response as follows:
 
-## Entity Analysis
+## Entity Extraction Analysis
 
-### People
+### People Mentioned
 
-• [Person 1]: [Role/context/frequency of mention]
+• **[Person Name]**: 
+  - **Role**: [How they're described in articles]
+  - **Quote**: "[Direct quote mentioning this person]"
+  - **Frequency**: Mentioned in [X] articles
+  - **Context**: "[What the articles say about them]"
 
-• [Person 2]: [Role/context/frequency of mention]
+• **[Person Name]**: 
+  - **Role**: [How they're described in articles]  
+  - **Quote**: "[Direct quote mentioning this person]"
+  - **Context**: "[What the articles say about them]"
 
 ### Organizations/Companies
 
-• [Organization 1]: [Context and significance]
+• **[Company Name]**: 
+  - **Industry**: [What the articles say about their business]
+  - **Quote**: "[Direct quote mentioning this company]"
+  - **Frequency**: Mentioned in [X] articles
+  - **News Context**: "[What news/events involve this company]"
 
-• [Organization 2]: [Context and significance]
+• **[Company Name]**: [Similar structure]
 
-### Locations
+### Locations/Countries
 
-• [Location 1]: [Relevance and context]
+• **[Location Name]**: 
+  - **Context**: [How it's mentioned in articles]
+  - **Quote**: "[Direct quote mentioning this location]" 
+  - **Relevance**: "[Why this location is discussed]"
 
-• [Location 2]: [Relevance and context]
+### Most Commonly Discussed Entities
 
-### Other Important Entities
+• **#1 Most Mentioned**: "[Entity name]" - Appears [X] times
+  - "[Quote example 1]"
+  - "[Quote example 2]"
 
-• [Entity 1]: [Type and significance]
+• **#2 Most Mentioned**: "[Entity name]" - Appears [X] times  
+  - "[Quote example 1]"
+  - "[Quote example 2]"
 
-• [Entity 2]: [Type and significance]
+• **#3 Most Mentioned**: "[Entity name]" - Appears [X] times
+  - "[Quote example 1]"
 
-### Most Frequently Mentioned
-1. [Entity name] - [Frequency/context]
-2. [Entity name] - [Frequency/context]
-3. [Entity name] - [Frequency/context]
+### Cross-Article Entity Analysis
 
-### Entity Relationships
+• **Entities appearing in multiple articles**:
+  - "[Entity]": In [X] articles - "[Quote from article 1]" and "[Quote from article 2]"
+  - "[Entity]": In [X] articles - "[Quote from article 1]" and "[Quote from article 2]"
 
-• [Description of how entities relate to each other and the main topics]
+### Entity Relationships (from article content)
 
-Focus on accuracy and provide context for why each entity is significant.`;
+• **[Entity 1]** and **[Entity 2]**: "[Direct quote showing their relationship]"
+• **[Entity 3]** and **[Entity 4]**: "[Direct quote showing their relationship]"
+
+### Key Topics/Themes Connected to Entities
+
+• **[Topic]** involves: [List of entities] - "[Supporting quote]"
+• **[Topic]** involves: [List of entities] - "[Supporting quote]"
+
+CRITICAL: Extract ONLY entities that are actually mentioned in the provided articles. Include direct quotes as evidence for every entity. Count frequency based on actual appearances in the text. Do not generate hypothetical entities.`;
 
       case 'general':
       default:
@@ -381,21 +522,29 @@ I can help you with various types of analysis and queries about these articles:
 
 ## Response
 
-[Provide a well-structured, informative response based on the articles]
+[Provide a well-structured, informative response based ONLY on the provided article content]
 
-## Supporting Information
+## Supporting Evidence from Articles
 
-• **Key Points**: [Relevant key points from the articles]
+• **Key Points**: [Relevant information directly from the articles] - "[Supporting quote]"
 
-• **Examples**: [Specific examples or quotes when applicable]
+• **Direct Quotes**: "[Specific sentence or passage from article]" - (Source: [Article name])
 
-• **Context**: [Additional context that helps answer the question]
+• **Specific Examples**: "[Actual examples found in the articles]" - "[Quote showing this example]"
+
+• **Context from Articles**: "[Additional context directly from the provided articles]"
 
 ## Sources Reference
 
-[Brief mention of which articles or sources provided the information]
+• **Primary Sources**: [Which specific articles provided the main information]
+• **Supporting Sources**: [Which articles provided additional context]
+• **Key Facts from**: [Article name] - "[Most important quote/fact]"
 
-If you cannot answer the question based on the provided context, clearly state this limitation and suggest what additional information might be needed.`;
+## Important Limitations
+
+If you cannot answer the question based on the provided article context, clearly state: "Based on the provided articles, I cannot find information about [specific aspect]. The articles discuss [what they actually discuss instead]."
+
+CRITICAL: Use ONLY information from the provided articles. Include direct quotes as evidence. Reference specific article sources. Do not generate information not found in the provided context.`;
     }
   }
 
@@ -405,7 +554,7 @@ If you cannot answer the question based on the provided context, clearly state t
       format: this.getResponseFormat(questionType.type),
       metadata: {
         questionType: questionType.type,
-        sources: this.extractSources(rawResponse),
+        // sources will be set by the langchain service
         extractedData: this.extractStructuredData(rawResponse, questionType.type)
       }
     };

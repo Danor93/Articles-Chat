@@ -54,17 +54,26 @@ export class StartupLoader {
     try {
       // For FAISS, we'll check if the store exists on disk
       const storeExists = await this.checkFaissStoreExists();
+      const articles = this.loadArticlesFromFile();
       
+      // Always set article metadata for prompt engineering
+      promptEngineeringService.setArticleMetadata(articles);
+      console.log('✓ Article metadata set for prompt engineering');
+
       if (storeExists) {
-        console.log('📚 FAISS store exists, articles already loaded');
-        // Still need to set article metadata for prompt engineering
-        const articles = this.loadArticlesFromFile();
-        promptEngineeringService.setArticleMetadata(articles);
-        console.log('✓ Article metadata set for prompt engineering');
+        console.log('📚 FAISS store exists, checking for new articles...');
+        const newArticles = await this.findNewArticles(articles);
+        
+        if (newArticles.length > 0) {
+          console.log(`📥 Found ${newArticles.length} new articles to process`);
+          await this.processNewArticles(newArticles);
+        } else {
+          console.log('✓ No new articles to process');
+        }
         return;
       }
 
-      console.log('📥 Loading articles from startup file...');
+      console.log('📥 Loading all articles from startup file...');
       await this.loadAndProcessArticles();
       
     } catch (error) {
@@ -206,6 +215,94 @@ export class StartupLoader {
     } catch (error) {
       console.error(`Error fetching content from ${url}:`, error);
       throw new Error(`Failed to fetch article content: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  private async findNewArticles(allArticles: Article[]): Promise<Article[]> {
+    try {
+      // Get all existing documents from FAISS store to check which URLs are already processed
+      const vectorStore = faissVectorStoreService.getVectorStore();
+      if (!vectorStore) {
+        console.log('⚠️  Vector store not available, processing all articles');
+        return allArticles;
+      }
+
+      // Perform a dummy search to access docstore and get all processed URLs
+      const existingUrls = new Set<string>();
+      
+      // Try to get existing documents by their metadata
+      // We'll search for a common term and check all returned documents
+      try {
+        const allDocs = await vectorStore.similaritySearch('the', allArticles.length * 10); // Get many documents
+        allDocs.forEach(doc => {
+          if (doc.metadata && doc.metadata.source) {
+            existingUrls.add(doc.metadata.source);
+          }
+        });
+      } catch (error) {
+        console.log('⚠️  Could not retrieve existing documents, processing all articles');
+        return allArticles;
+      }
+
+      const newArticles = allArticles.filter(article => !existingUrls.has(article.url));
+      
+      console.log(`📊 Article analysis:`);
+      console.log(`   Total articles in file: ${allArticles.length}`);
+      console.log(`   Already processed: ${existingUrls.size}`);
+      console.log(`   New articles to process: ${newArticles.length}`);
+      
+      if (newArticles.length > 0) {
+        console.log(`🆕 New articles found:`);
+        newArticles.forEach(article => {
+          console.log(`   - ${article.title || article.url}`);
+        });
+      }
+      
+      return newArticles;
+    } catch (error) {
+      console.error('Error finding new articles:', error);
+      console.log('⚠️  Falling back to processing all articles');
+      return allArticles;
+    }
+  }
+
+  private async processNewArticles(articles: Article[]): Promise<void> {
+    if (articles.length === 0) {
+      return;
+    }
+
+    let processed = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < articles.length; i += this.concurrentLimit) {
+      const batch = articles.slice(i, i + this.concurrentLimit);
+      
+      console.log(`Processing new articles batch ${Math.floor(i / this.concurrentLimit) + 1}/${Math.ceil(articles.length / this.concurrentLimit)}`);
+      
+      const results = await Promise.allSettled(
+        batch.map(article => this.processArticle(article))
+      );
+
+      results.forEach((result, index) => {
+        const article = batch[index];
+        if (result.status === 'fulfilled') {
+          processed++;
+          console.log(`✓ Processed new article: ${article.title || article.url}`);
+        } else {
+          const error = `Failed to process ${article.url}: ${result.reason}`;
+          errors.push(error);
+          console.error(`❌ ${error}`);
+        }
+      });
+    }
+
+    console.log(`\n📊 New articles processing completed:`);
+    console.log(`   ✓ Successfully processed: ${processed}/${articles.length}`);
+    console.log(`   ❌ Failed: ${errors.length}`);
+    
+    if (errors.length > 0) {
+      console.log('\n🔍 Errors encountered:');
+      errors.forEach(error => console.log(`   - ${error}`));
     }
   }
 

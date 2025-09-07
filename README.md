@@ -208,3 +208,12 @@ Key environment variables:
 - **Concurrent Users**: 10-50 supported
 - **Article Processing**: 6-8 chunks per article
 - **Cache Hit Rate**: ~40% in typical usage
+
+## 🔮 Future Enhancements
+
+*Potential features for extended development:*
+
+- **User Authentication**: PostgreSQL-based authentication to protect backend services, manage users, conversation history, and sessions
+- **Streaming Responses**: Real-time response streaming
+- **Testing Suite**: Unit and integration tests
+- **K8s Deployment**: Kubernetes manifests and CI/CD pipelines

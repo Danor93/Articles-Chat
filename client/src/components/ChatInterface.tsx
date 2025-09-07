@@ -494,7 +494,7 @@ export function ChatInterface({
                           </AvatarFallback>
                         </Avatar>
                       </motion.div>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 flex items-center">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <motion.div
                             animate={{ rotate: 360 }}

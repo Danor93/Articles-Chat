@@ -11,11 +11,22 @@ interface ChatRequest {
   conversationId?: string;
 }
 
+interface ChunkSource {
+  article_id: string;
+  article_title: string;
+  chunk_id: string;
+  content: string;
+  relevance: number;
+  position: number;
+}
+
 interface ChatResponse {
   response: string;
   conversationId: string;
   timestamp: string;
-  sources?: string[];
+  sources?: ChunkSource[];
+  tokensUsed?: number;
+  processingTime?: number;
   format?: string;
   questionType?: string;
   metadata?: any;
@@ -44,7 +55,9 @@ router.post('/',
       timestamp: new Date().toISOString(),
       format: formattedResponse.format,
       questionType: formattedResponse.metadata?.questionType,
-      sources: formattedResponse.metadata?.sources,
+      sources: formattedResponse.metadata?.sources || [],
+      tokensUsed: formattedResponse.metadata?.tokensUsed || 0,
+      processingTime: formattedResponse.metadata?.processingTime || 0,
       metadata: formattedResponse.metadata,
     };
 
