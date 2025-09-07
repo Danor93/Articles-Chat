@@ -71,7 +71,7 @@ export function Footer() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <motion.a
-                  href="https://github.com/Danor93/Articles-Chat"
+                  href="https://github.com/Danor93/Clarticle"
                   target="_blank"
                   rel="noopener noreferrer"
                   whileHover={{ scale: 1.05 }}

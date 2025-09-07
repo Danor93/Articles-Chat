@@ -11,8 +11,8 @@ This guide will help you get Clarticle up and running on your local machine.
 ## Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/Danor93/Article-Chat.git
-cd Article-Chat
+git clone https://github.com/Danor93/Clarticle.git
+cd Clarticle
 ```
 
 ## Step 2: Configure Environment Variables

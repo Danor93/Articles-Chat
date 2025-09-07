@@ -162,8 +162,8 @@ For detailed installation instructions, see [INSTALL.md](./INSTALL.md).
 
 ```bash
 # Clone repository
-git clone https://github.com/Danor93/Article-Chat.git
-cd Article-Chat
+git clone https://github.com/Danor93/Clarticle.git
+cd Clarticle
 
 # Setup environment
 cp server/.env.example server/.env
