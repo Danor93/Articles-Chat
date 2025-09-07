@@ -7,6 +7,7 @@ A RAG (Retrieval-Augmented Generation) chat system that enables intelligent conv
 Article Chat uses a hybrid microservices architecture combining Go and Node.js for optimal performance:
 
 ```mermaid
+%%{init: {'flowchart': {'htmlLabels': false}, 'securityLevel': 'loose'}}%%
 graph TD
     subgraph "Frontend"
         A[React Client]
@@ -31,13 +32,13 @@ graph TD
 
     I --> |Load on Startup| C
 
-    style A fill:#61dafb,stroke:#333,stroke-width:2px
-    style B fill:#00d9ff,stroke:#333,stroke-width:2px
-    style C fill:#68a063,stroke:#333,stroke-width:2px
-    style D fill:#dc382d,stroke:#333,stroke-width:2px
-    style F fill:#ff9500,stroke:#333,stroke-width:2px
-    style G fill:#f0f0f0,stroke:#333,stroke-width:2px
-    style I fill:#f0f0f0,stroke:#333,stroke-width:2px
+    style A fill:#61dafb,stroke:#21262d,stroke-width:2px,color:#000
+    style B fill:#0969da,stroke:#21262d,stroke-width:2px,color:#fff
+    style C fill:#2ea043,stroke:#21262d,stroke-width:2px,color:#fff
+    style D fill:#cf222e,stroke:#21262d,stroke-width:2px,color:#fff
+    style F fill:#fb8500,stroke:#21262d,stroke-width:2px,color:#000
+    style G fill:#6e7781,stroke:#21262d,stroke-width:2px,color:#fff
+    style I fill:#6e7781,stroke:#21262d,stroke-width:2px,color:#fff
 ```
 
 ## 📁 Project Structure
