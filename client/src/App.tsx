@@ -4,6 +4,7 @@ import { ChatInterface } from '@/components/ChatInterface';
 import { ArticleManager } from '@/components/ArticleManager';
 import { Footer } from '@/components/Footer';
 import { ThemeProvider } from '@/components/theme-provider';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -170,6 +171,9 @@ function App() {
                   </TooltipContent>
                 </Tooltip>
               </div>
+              
+              {/* Theme Toggle */}
+              <ThemeToggle />
             </div>
           </div>
         </div>

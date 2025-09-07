@@ -2,7 +2,6 @@ import { motion } from 'framer-motion';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { Heart, Code, Sparkles } from 'lucide-react';
 
 export function Footer() {
@@ -48,15 +47,6 @@ export function Footer() {
             </div>
           </div>
           
-          {/* Right side - Theme toggle and links */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground hidden sm:block">
-                Theme:
-              </span>
-              <ThemeToggle />
-            </div>
-          </div>
         </div>
         
         {/* Bottom divider */}

@@ -24,7 +24,7 @@
 # ============================================================================
 # BUILD STAGE - TypeScript Compilation & Dependency Installation
 # ============================================================================
-FROM node:20-bullseye-slim AS builder
+FROM node:20-bookworm-slim AS builder
 
 # Install build dependencies required for native modules and AI/ML libraries
 # Python3: Required for some native Node.js modules and AI libraries
@@ -56,7 +56,7 @@ RUN npm run build || npx tsc
 # ============================================================================
 # PRODUCTION STAGE - Optimized Runtime Environment
 # ============================================================================
-FROM node:20-bullseye-slim
+FROM node:20-bookworm-slim
 
 # Install minimal runtime dependencies for AI/ML operations
 # Python3: Required for HuggingFace transformers and native modules
