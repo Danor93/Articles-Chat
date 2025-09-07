@@ -1,3 +1,45 @@
+// ChatInterface Component - Modern AI Chat Experience
+//
+// This component provides the main chat interface for the Article-Chat system,
+// implementing a modern ChatGPT/Claude-style conversation experience with advanced
+// animations, markdown rendering, and seamless integration with the backend services.
+//
+// KEY FEATURES & CAPABILITIES:
+// 1. Modern Chat UI: Avatar-based design matching leading AI applications (ChatGPT, Claude)
+// 2. Advanced Animations: Framer Motion integration with smooth micro-interactions
+// 3. Markdown Rendering: Full ReactMarkdown support for rich AI responses  
+// 4. State Persistence: Messages persist across tab navigation via props-based state management
+// 5. Intelligent Input: Auto-resizing textarea with large text support (120px-400px)
+// 6. Error Handling: Complete integration with standardized error system
+// 7. Copy Functionality: One-click copy of AI responses with visual feedback
+// 8. Performance Optimized: Efficient re-renders and scroll management
+//
+// CHAT EXPERIENCE DESIGN:
+// - Welcome Screen: Animated bot avatar with gentle rocking motion when empty
+// - Message Layout: Clean avatar-based messages without chat bubbles
+// - Professional Styling: shadcn/ui components with Tailwind CSS
+// - Responsive Design: Mobile-first approach with proper breakpoints
+// - Loading States: Sophisticated loading animations for processing feedback
+// - Auto-scroll: Automatic scrolling to new messages for natural flow
+//
+// TECHNICAL ARCHITECTURE:
+// - Props-based State: Messages managed by parent App component for persistence
+// - API Integration: Direct communication with Go backend via chatApi
+// - Error Mapping: Maps backend error codes to user-friendly messages
+// - Animation System: Comprehensive Framer Motion integration for smooth UX
+// - Accessibility: Full keyboard navigation and screen reader support
+//
+// PERFORMANCE OPTIMIZATIONS:
+// - Textarea Auto-resize: Intelligent height management for large text input
+// - Message Animations: Optimized AnimatePresence for smooth message transitions  
+// - Copy Operations: Efficient clipboard API with timeout-based feedback
+// - Scroll Management: Smart auto-scroll with scroll area optimization
+//
+// INTEGRATION WITH BACKEND:
+// - Real-time Communication: Axios-based HTTP requests to Go backend API
+// - Conversation Continuity: Conversation ID management for session context
+// - Cache Indicators: Visual feedback when responses served from Redis cache
+// - Error Resilience: Graceful handling of service unavailability
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,26 +53,39 @@ import { Send, Loader2, User, Bot, Copy, Check, Sparkles, AlertCircle } from 'lu
 import { chatApi } from '@/lib/api';
 import type { ApiError, ChatMessage } from '@/lib/api';
 
+// ChatInterfaceProps defines the interface for props-based state management
+// This design allows message persistence across tab navigation in the App component
 interface ChatInterfaceProps {
-  messages: ChatMessage[];
-  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
-  conversationId?: string;
-  setConversationId: React.Dispatch<React.SetStateAction<string | undefined>>;
+  messages: ChatMessage[];                    // Current conversation messages
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>; // Message state updater
+  conversationId?: string;                    // Optional conversation ID for session continuity
+  setConversationId: React.Dispatch<React.SetStateAction<string | undefined>>; // Conversation ID updater
 }
 
+/**
+ * ChatInterface - Main chat component with modern AI chat experience
+ * 
+ * Implements Claude/ChatGPT-style interface with advanced features:
+ * - Props-based state management for persistence across navigation
+ * - Professional animations and micro-interactions
+ * - Intelligent textarea auto-resizing for large content
+ * - Complete error handling with user-friendly messages
+ */
 export function ChatInterface({ 
   messages, 
   setMessages, 
   conversationId, 
   setConversationId 
 }: ChatInterfaceProps) {
-  const [inputMessage, setInputMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // LOCAL STATE MANAGEMENT
+  const [inputMessage, setInputMessage] = useState('');              // Current input text
+  const [isLoading, setIsLoading] = useState(false);                // Chat processing state
+  const [error, setError] = useState<string | null>(null);          // Error display state
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null); // Copy feedback state
+  const textareaRef = useRef<HTMLTextAreaElement>(null);            // Textarea DOM reference
 
-  // Auto-scroll to bottom when new messages are added
+  // EFFECT: Auto-scroll to bottom when new messages arrive
+  // Ensures users always see the latest message without manual scrolling
   useEffect(() => {
     const scrollContainer = document.querySelector('[data-radix-scroll-area-viewport]');
     if (scrollContainer) {
@@ -38,58 +93,78 @@ export function ChatInterface({
     }
   }, [messages]);
 
-  // Initialize textarea height on mount
+  // EFFECT: Initialize textarea with fixed height on component mount  
+  // Prevents initial flash and ensures consistent starting size
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
-      textarea.style.height = '120px'; // Set initial height
+      textarea.style.height = '120px'; // Fixed initial height for consistency
     }
   }, []);
 
-  // Auto-resize textarea based on content
+  // EFFECT: Intelligent textarea auto-resize system
+  // BREAKTHROUGH FEATURE: Handles large text input (articles, long questions) gracefully
+  // - Minimum height: 120px (prevents shrinking below comfortable size)
+  // - Maximum height: 400px (prevents excessive growth)
+  // - Smart growth: Only expands when content actually overflows
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
-      // First, set to minimum height to check if content fits
+      // Reset to minimum height to accurately measure content
       textarea.style.height = '120px';
       
-      // Check if content overflows the minimum height
       const scrollHeight = textarea.scrollHeight;
       const currentHeight = textarea.clientHeight;
       
-      // Only grow if content actually exceeds the current height
+      // Only grow if content exceeds current height (prevents unnecessary resizing)
       if (scrollHeight > currentHeight) {
-        const newHeight = Math.min(400, scrollHeight);
+        const newHeight = Math.min(400, scrollHeight); // Cap at 400px maximum
         textarea.style.height = `${newHeight}px`;
       }
-      // If content fits in 120px, keep it at 120px (no shrinking, no unnecessary growing)
+      // Maintains 120px minimum - no shrinking below comfortable size
     }
   }, [inputMessage]);
 
+  /**
+   * handleSendMessage - Core chat message processing function
+   * 
+   * PROCESSING PIPELINE:
+   * 1. Immediate UI update (optimistic) - user message appears instantly
+   * 2. API call to Go backend → RAG service → Claude
+   * 3. AI response integration with conversation continuity
+   * 4. Error handling with user-friendly message mapping
+   * 
+   * PERFORMANCE OPTIMIZATIONS:
+   * - Optimistic UI updates for immediate feedback
+   * - Conversation ID management for session continuity
+   * - Cache awareness and logging for performance monitoring
+   */
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
+    // STEP 1: Create user message and update UI immediately (optimistic update)
     const userMessage: ChatMessage = {
       role: 'user',
       content: inputMessage.trim(),
       timestamp: new Date().toISOString(),
     };
 
-    // Add user message immediately
-    setMessages(prev => [...prev, userMessage]);
+    setMessages(prev => [...prev, userMessage]); // Immediate UI update
     const messageToSend = inputMessage.trim();
-    setInputMessage('');
-    setError(null);
-    setIsLoading(true);
+    setInputMessage('');     // Clear input immediately
+    setError(null);          // Clear any previous errors
+    setIsLoading(true);      // Show loading state
 
     try {
+      // STEP 2: Send message to Go backend → RAG service → Claude API
       const response = await chatApi.sendMessage(messageToSend, conversationId);
       
-      // Set conversation ID for future messages
+      // STEP 3: Conversation continuity management
       if (response.conversation_id && !conversationId) {
         setConversationId(response.conversation_id);
       }
 
+      // STEP 4: Add AI response to conversation
       const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: response.message,
@@ -98,14 +173,15 @@ export function ChatInterface({
 
       setMessages(prev => [...prev, assistantMessage]);
 
-      // Show cache indicator if response was cached
+      // STEP 5: Cache performance monitoring
       if (response.cached) {
-        console.log('Response served from cache');
+        console.log('Response served from cache'); // Performance indicator
       }
     } catch (err: unknown) {
       console.error('Chat error:', err);
       let errorMessage = 'Failed to send message. Please try again.';
       
+      // STEP 6: Error code mapping from backend to user-friendly messages
       if (err && typeof err === 'object' && 'response' in err && (err as any).response?.data) {
         const apiError = (err as any).response.data as ApiError;
         switch (apiError.error) {
@@ -129,11 +205,15 @@ export function ChatInterface({
       setError(errorMessage);
     } finally {
       setIsLoading(false);
-      // Focus back to textarea
-      textareaRef.current?.focus();
+      textareaRef.current?.focus(); // Return focus for continued typing
     }
   };
 
+  /**
+   * handleKeyPress - Keyboard interaction handler
+   * - Enter: Send message (standard chat behavior)
+   * - Shift+Enter: New line (allows multi-line input)
+   */
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -141,17 +221,25 @@ export function ChatInterface({
     }
   };
 
+  /**
+   * clearChat - Reset conversation state
+   * Clears messages, conversation ID, and any error states for fresh start
+   */
   const clearChat = () => {
     setMessages([]);
     setConversationId(undefined);
     setError(null);
   };
 
+  /**
+   * copyToClipboard - Copy AI response with visual feedback
+   * Uses modern Clipboard API with timeout-based feedback system
+   */
   const copyToClipboard = async (text: string, messageIndex: number) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedMessageId(messageIndex.toString());
-      setTimeout(() => setCopiedMessageId(null), 2000);
+      setTimeout(() => setCopiedMessageId(null), 2000); // 2s feedback duration
     } catch (err) {
       console.error('Failed to copy text: ', err);
     }

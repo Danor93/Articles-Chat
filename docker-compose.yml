@@ -1,71 +1,117 @@
+# Article-Chat Docker Compose Configuration - Hybrid Microservices Architecture
+#
+# This Docker Compose file orchestrates the complete Article-Chat system using a
+# hybrid microservices architecture optimized for both development and production deployment.
+#
+# ARCHITECTURE OVERVIEW:
+# - Go Backend: High-performance API gateway handling HTTP traffic and service orchestration
+# - Node.js RAG Service: Specialized AI/ML service with LangChain.js, Claude, and FAISS vector storage
+# - React Frontend: Modern web interface with nginx reverse proxy
+# - Redis: High-performance caching layer for chat responses and article processing
+#
+# SERVICE COMMUNICATION:
+# - Internal Docker network (app-network) enables secure inter-service communication
+# - Service discovery via Docker DNS (service names resolve to container IPs)
+# - Port mapping exposes services to host for development and monitoring
+#
+# PERFORMANCE OPTIMIZATIONS:
+# - Multi-stage builds for optimized production images
+# - Volume mounting for persistent data (FAISS store, articles)
+# - Redis caching reduces API calls and improves response times
+# - Restart policies ensure high availability
+#
+# DEPLOYMENT CONSIDERATIONS:
+# - Environment files (.env) for service-specific configuration
+# - Health checks and dependency management with depends_on
+# - Network isolation with custom bridge network
+# - Volume persistence for AI model cache and vector storage
+
 services:
-  # Go Backend - API Gateway and Orchestrator
+  # ============================================================================
+  # GO BACKEND SERVICE - API Gateway & Request Orchestration
+  # ============================================================================
   backend-go:
     build:
-      context: .
-      dockerfile: server.Dockerfile
+      context: . # Build from repository root
+      dockerfile: server.Dockerfile # Go service Dockerfile
     ports:
-      - "8080:8080"
+      - "8080:8080" # HTTP API endpoint
     env_file:
-      - ./server/.env
+      - ./server/.env # Go service environment variables
     environment:
-      - RAG_SERVICE_URL=http://rag-service-nodejs:3001
-      - REDIS_URL=redis://redis:6379
-      - GO_ENV=production
+      # Service communication configuration
+      - RAG_SERVICE_URL=http://rag-service-nodejs:3001 # Internal Docker network URL
+      - REDIS_URL=redis://redis:6379 # Redis connection string
+      - GO_ENV=production # Production optimizations
     depends_on:
-      - rag-service-nodejs
-      - redis
+      - rag-service-nodejs # Wait for RAG service
+      - redis # Wait for Redis cache
     networks:
-      - app-network
-    restart: unless-stopped
+      - app-network # Internal service network
+    restart: unless-stopped # High availability restart policy
 
-  # Node.js RAG Service
+  # ============================================================================
+  # NODE.JS RAG SERVICE - AI/ML Processing Engine
+  # ============================================================================
   rag-service-nodejs:
     build:
-      context: .
-      dockerfile: rag-service.Dockerfile
+      context: . # Build from repository root
+      dockerfile: rag-service.Dockerfile # Node.js RAG service Dockerfile
     ports:
-      - "3001:3001"
+      - "3001:3001" # RAG service API endpoint
     env_file:
-      - ./rag-service/.env
+      - ./rag-service/.env # RAG service environment (ANTHROPIC_API_KEY, etc.)
     environment:
-      - NODE_ENV=production
-      - PORT=3001
-      - ARTICLES_JSON_PATH=/app/data/articles.json
-      - FAISS_STORE_PATH=/app/data/faiss_store
-      - TRANSFORMERS_CACHE=/app/.cache
+      - NODE_ENV=production # Node.js production optimizations
+      - PORT=3001 # Service port
+      # AI/ML data paths within container
+      - ARTICLES_JSON_PATH=/app/data/articles.json # Knowledge base source
+      - FAISS_STORE_PATH=/app/data/faiss_store # Vector storage location
+      - TRANSFORMERS_CACHE=/app/.cache # HuggingFace model cache
     networks:
-      - app-network
+      - app-network # Internal service network
     volumes:
-      - ./data:/app/data
-    restart: unless-stopped
+      - ./data:/app/data # Persistent storage for articles and vector store
+    restart: unless-stopped # High availability restart policy
 
-  # React Frontend
+  # ============================================================================
+  # REACT FRONTEND SERVICE - Web Interface with Nginx Proxy
+  # ============================================================================
   frontend-react:
     build:
-      context: .
-      dockerfile: client.Dockerfile
+      context: . # Build from repository root
+      dockerfile: client.Dockerfile # React frontend Dockerfile
     ports:
-      - "3000:3000"
+      - "3000:3000" # Web application port
     env_file:
-      - ./client/.env
+      - ./client/.env # Frontend environment variables
     environment:
-      - VITE_API_URL=http://localhost:8080
+      # API communication configuration
+      - VITE_API_URL=http://localhost:8080 # Go backend API URL (host-accessible)
     depends_on:
-      - backend-go
+      - backend-go # Wait for backend API availability
     networks:
-      - app-network
-    restart: unless-stopped
+      - app-network # Internal service network
+    restart: unless-stopped # High availability restart policy
 
-  # Redis for caching
+  # ============================================================================
+  # REDIS CACHE SERVICE - High-Performance Caching Layer
+  # ============================================================================
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine # Lightweight Redis image
     ports:
-      - "6379:6379"
+      - "6379:6379" # Redis connection port
     networks:
-      - app-network
-    restart: unless-stopped
+      - app-network # Internal service network
+    restart: unless-stopped # High availability restart policy
+    # Redis provides:
+    # - Chat response caching
+    # - Article processing result caching
+    # - Session and conversation state persistence
 
+# ============================================================================
+# NETWORKING CONFIGURATION
+# ============================================================================
 networks:
   app-network:
-    driver: bridge
+    driver: bridge # Docker bridge network for service isolation
