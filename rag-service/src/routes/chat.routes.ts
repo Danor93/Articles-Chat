@@ -6,9 +6,16 @@ import { createError, ErrorCode } from '../utils/errors';
 
 const router = Router();
 
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+}
+
 interface ChatRequest {
   query: string;
   conversationId?: string;
+  conversationHistory?: ChatMessage[];
 }
 
 interface ChunkSource {
@@ -35,9 +42,10 @@ interface ChatResponse {
 router.post('/', 
   validateRequest(chatValidationRules),
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const { query, conversationId = 'default' }: ChatRequest = req.body;
+    const { query, conversationId = 'default', conversationHistory = [] }: ChatRequest = req.body;
 
     console.log(`Processing chat query: ${query.substring(0, 100)}...`);
+    console.log(`Conversation history length: ${conversationHistory.length}`);
 
     // Check if services are initialized
     if (!langchainService.isInitialized()) {
@@ -47,7 +55,7 @@ router.post('/',
       );
     }
 
-    const formattedResponse = await langchainService.processChat(query, conversationId);
+    const formattedResponse = await langchainService.processChat(query, conversationId, conversationHistory);
 
     const chatResponse: ChatResponse = {
       response: formattedResponse.answer,
@@ -68,9 +76,10 @@ router.post('/',
 router.post('/stream', 
   validateRequest(chatValidationRules),
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const { query, conversationId = 'default' }: ChatRequest = req.body;
+    const { query, conversationId = 'default', conversationHistory = [] }: ChatRequest = req.body;
 
     console.log(`Processing streaming chat query: ${query.substring(0, 100)}...`);
+    console.log(`Conversation history length: ${conversationHistory.length}`);
 
     // Check if services are initialized
     if (!langchainService.isInitialized()) {
@@ -87,7 +96,7 @@ router.post('/stream',
     res.setHeader('Access-Control-Allow-Headers', 'Cache-Control');
 
     try {
-      const stream = await langchainService.processChatStreaming(query, conversationId);
+      const stream = await langchainService.processChatStreaming(query, conversationId, conversationHistory);
 
       for await (const chunk of stream) {
         res.write(`data: ${JSON.stringify({ content: chunk, done: false })}\n\n`);

@@ -7,11 +7,12 @@ import { claudeService } from './claude.service';
 import { embeddingsService } from './embeddings.service';
 import { faissVectorStoreService } from './faiss-vectorstore.service';
 import { promptEngineeringService, type FormattedResponse } from './prompt-engineering.service';
+import axios from 'axios';
 
 interface ChatMessage {
-  role: string;
+  role: 'user' | 'assistant';
   content: string;
-  timestamp: Date;
+  timestamp: Date | string;
 }
 
 interface ConversationHistory {
@@ -111,19 +112,26 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
     }
   }
 
-  async processChat(query: string, conversationId: string = 'default'): Promise<FormattedResponse> {
+  async processChat(query: string, conversationId: string = 'default', providedHistory: ChatMessage[] = []): Promise<FormattedResponse> {
     if (!this.ragChain) {
       throw new Error('RAG chain not initialized');
     }
 
     try {
-      if (!this.conversationHistory[conversationId]) {
-        this.conversationHistory[conversationId] = [];
-      }
+      // Use provided history if available, otherwise fall back to internal memory
+      const historyToUse = providedHistory.length > 0 ? providedHistory : (this.conversationHistory[conversationId] || []);
+      
+      console.log(`Using conversation history: ${historyToUse.length} messages`);
 
       // Classify the question type
       const questionType = promptEngineeringService.classifyQuestion(query);
       console.log(`Question classified as: ${questionType.type} (confidence: ${questionType.confidence})`);
+
+      // Handle articles list requests specially
+      if (questionType.type === 'articles_list') {
+        console.log('Handling articles list request...');
+        return await this.handleArticlesListRequest(query, conversationId, historyToUse);
+      }
 
       // Get relevant documents with scores
       const relevantDocsWithScores = await faissVectorStoreService.similaritySearchWithScore(query, parseInt(process.env.RAG_SEARCH_RESULTS || '4'));
@@ -139,11 +147,11 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
         position: index
       }));
 
-      // Generate specialized prompt based on question type
-      const specializedPrompt = promptEngineeringService.generatePrompt(query, questionType, context);
+      // Generate specialized prompt based on question type and include conversation context
+      const specializedPrompt = promptEngineeringService.generatePrompt(query, questionType, context, historyToUse);
 
-      // Use Claude service directly for better control over the response
-      const messages = claudeService.formatMessagesFromHistory(this.conversationHistory[conversationId]);
+      // Convert history to Claude message format
+      const messages = claudeService.formatMessagesFromHistory(historyToUse);
       messages.push({
         role: 'user',
         content: specializedPrompt,
@@ -163,7 +171,10 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
         processingTime: Date.now() - Date.now() // This should be calculated properly
       };
       
-      this.addToHistory(conversationId, query, formattedResponse.answer);
+      // Only update internal history if no external history was provided
+      if (providedHistory.length === 0) {
+        this.addToHistory(conversationId, query, formattedResponse.answer);
+      }
       
       return formattedResponse;
     } catch (error) {
@@ -172,15 +183,16 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
     }
   }
 
-  async processChatStreaming(query: string, conversationId: string = 'default'): Promise<AsyncIterable<string>> {
+  async processChatStreaming(query: string, conversationId: string = 'default', providedHistory: ChatMessage[] = []): Promise<AsyncIterable<string>> {
     if (!this.ragChain) {
       throw new Error('RAG chain not initialized');
     }
 
     try {
-      if (!this.conversationHistory[conversationId]) {
-        this.conversationHistory[conversationId] = [];
-      }
+      // Use provided history if available, otherwise fall back to internal memory
+      const historyToUse = providedHistory.length > 0 ? providedHistory : (this.conversationHistory[conversationId] || []);
+      
+      console.log(`Using conversation history for streaming: ${historyToUse.length} messages`);
 
       // Classify the question type
       const questionType = promptEngineeringService.classifyQuestion(query);
@@ -190,10 +202,10 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
       const relevantDocs = await faissVectorStoreService.similaritySearch(query, parseInt(process.env.RAG_SEARCH_RESULTS || '4'));
       const context = relevantDocs.map((doc: Document) => doc.pageContent).join('\n\n');
 
-      // Generate specialized prompt based on question type
-      const specializedPrompt = promptEngineeringService.generatePrompt(query, questionType, context);
+      // Generate specialized prompt based on question type and include conversation context
+      const specializedPrompt = promptEngineeringService.generatePrompt(query, questionType, context, historyToUse);
       
-      const messages = claudeService.formatMessagesFromHistory(this.conversationHistory[conversationId]);
+      const messages = claudeService.formatMessagesFromHistory(historyToUse);
       messages.push({
         role: 'user',
         content: specializedPrompt,
@@ -202,7 +214,9 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
       const stream = await claudeService.generateStreamingResponse(messages);
       
       let fullResponse = '';
-      const processedStream = this.processStreamWithHistory(stream, conversationId, query, fullResponse);
+      // Only update internal history if no external history was provided
+      const shouldUpdateHistory = providedHistory.length === 0;
+      const processedStream = this.processStreamWithHistory(stream, conversationId, query, fullResponse, shouldUpdateHistory);
       
       return processedStream;
     } catch (error) {
@@ -215,14 +229,17 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
     stream: AsyncIterable<string>, 
     conversationId: string, 
     query: string, 
-    fullResponse: string
+    fullResponse: string,
+    shouldUpdateHistory: boolean = true
   ): AsyncIterable<string> {
     for await (const chunk of stream) {
       fullResponse += chunk;
       yield chunk;
     }
     
-    this.addToHistory(conversationId, query, fullResponse);
+    if (shouldUpdateHistory) {
+      this.addToHistory(conversationId, query, fullResponse);
+    }
   }
 
   private formatChatHistory(conversationId: string): string {
@@ -299,6 +316,128 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
         .substring(0, 100); // Limit length
     } catch {
       return 'Unknown Article';
+    }
+  }
+
+  private async handleArticlesListRequest(query: string, conversationId: string, historyToUse: ChatMessage[]): Promise<FormattedResponse> {
+    try {
+      console.log('Inside handleArticlesListRequest method');
+      // Read articles directly from file instead of API call
+      const fs = require('fs');
+      const path = require('path');
+      
+      const articlesPath = process.env.ARTICLES_JSON_PATH || 
+        (process.env.NODE_ENV === 'production' ? '/app/data/articles.json' : path.join(__dirname, '../../../data/articles.json'));
+      
+      let sourceArticles = [];
+      if (fs.existsSync(articlesPath)) {
+        const fileContent = fs.readFileSync(articlesPath, 'utf-8');
+        sourceArticles = JSON.parse(fileContent);
+      }
+
+      const articlesData = {
+        total: sourceArticles.length,
+        articles: sourceArticles
+      };
+
+      let articlesListText = '';
+      if (articlesData.articles && articlesData.articles.length > 0) {
+        articlesListText = `## Available Articles (${articlesData.total} total)
+
+${articlesData.articles.map((article: any, index: number) => {
+  const domain = article.url ? new URL(article.url).hostname.replace('www.', '') : 'unknown';
+  const processedDate = new Date(article.processedAt).toLocaleDateString();
+  return `${index + 1}. **${article.title}**
+   - Source: ${domain}
+   - URL: ${article.url}
+   - Processed: ${processedDate}
+   - Chunks: ${article.chunks}`;
+}).join('\n\n')}
+
+## Categories Available
+Based on the sources, articles cover topics in:
+${[...new Set(articlesData.articles.map((a: any) => new URL(a.url).hostname.replace('www.', '')))]
+  .map(domain => `• ${domain}`)
+  .join('\n')}`;
+      } else {
+        articlesListText = `## No Articles Currently Available
+
+The knowledge base doesn't currently contain any processed articles. Articles need to be added and processed before I can provide analysis and insights.
+
+To add articles, you would typically:
+1. Use the Articles tab to add new articles
+2. Wait for processing to complete
+3. Then I can analyze and answer questions about the content`;
+      }
+
+      // Generate the specialized prompt
+      console.log('Generating specialized prompt...');
+      console.log('Articles list text:', articlesListText.substring(0, 300) + '...');
+      const specializedPrompt = promptEngineeringService.generatePrompt(query, 
+        { type: 'articles_list', confidence: 1.0 }, 
+        articlesListText, 
+        historyToUse
+      );
+      console.log('Generated prompt:', specializedPrompt.substring(0, 500) + '...');
+
+      // Use Claude service to format the response
+      console.log('Formatting messages for Claude...');
+      const messages = claudeService.formatMessagesFromHistory(historyToUse);
+      messages.push({
+        role: 'user',
+        content: specializedPrompt,
+      } as any);
+
+      console.log('Calling Claude service...');
+      const rawResponse = await claudeService.generateResponse(messages);
+      console.log('Got response from Claude:', rawResponse.substring(0, 100) + '...');
+      
+      // Format the response
+      const formattedResponse = promptEngineeringService.formatResponse(rawResponse, 
+        { type: 'articles_list', confidence: 1.0 }, 
+        query
+      );
+      
+      // Add metadata
+      formattedResponse.metadata = {
+        ...formattedResponse.metadata,
+        questionType: 'articles_list',
+        articlesCount: articlesData.total || 0,
+        sources: [],
+        tokensUsed: 0,
+        processingTime: Date.now() - Date.now()
+      };
+      
+      return formattedResponse;
+    } catch (error) {
+      console.error('Error handling articles list request:', error);
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      
+      // Fallback response
+      const fallbackResponse = `I apologize, but I'm having trouble accessing the articles list at the moment. This could be because:
+
+1. No articles have been processed yet
+2. The articles service is temporarily unavailable
+3. There was an error retrieving the information
+
+To add articles to my knowledge base:
+• Use the Articles tab in the application
+• Add article URLs for processing  
+• Wait for processing to complete
+• Then I'll be able to analyze and discuss the content
+
+You can try asking about available articles again in a moment, or feel free to ask me other questions!`;
+
+      return {
+        answer: fallbackResponse,
+        format: 'conversational',
+        metadata: {
+          questionType: 'articles_list',
+          articlesCount: 0,
+          sources: [],
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      };
     }
   }
 }

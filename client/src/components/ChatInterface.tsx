@@ -88,7 +88,10 @@ export function ChatInterface({
     currentConversation, 
     createConversation,
     addMessage,
-    clearCurrentConversation
+    clearCurrentConversation,
+    isNearLimit,
+    getRemainingMessages,
+    getConversationLength
   } = useConversations();
   
   // Use context messages if available, otherwise fall back to props
@@ -165,6 +168,12 @@ export function ChatInterface({
    */
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
+    
+    // Check if conversation is at maximum length
+    if (getConversationLength() >= 20) {
+      setError('This conversation has reached its maximum length. Please start a new conversation to continue chatting.');
+      return;
+    }
 
     const messageToSend = inputMessage.trim();
     setInputMessage('');     // Clear input immediately
@@ -563,6 +572,26 @@ export function ChatInterface({
           </div>
         </ScrollArea>
       </div>
+
+      {/* Warning Display - Near Conversation Limit */}
+      <AnimatePresence>
+        {isNearLimit() && !error && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="flex-shrink-0 px-6 py-2"
+          >
+            <Alert className="flex items-center gap-2 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-amber-200 dark:border-amber-800">
+              <AlertCircle className="h-4 w-4 text-amber-500" />
+              <AlertDescription className="text-amber-700 dark:text-amber-300">
+                This conversation is approaching its limit ({getRemainingMessages()} messages remaining). 
+                Consider starting a new conversation soon to maintain chat quality.
+              </AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Error Display */}
       <AnimatePresence>

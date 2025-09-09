@@ -1,5 +1,5 @@
 export interface QuestionType {
-  type: 'summary' | 'keywords' | 'sentiment' | 'comparison' | 'search' | 'entities' | 'general';
+  type: 'articles_list' | 'summary' | 'keywords' | 'sentiment' | 'comparison' | 'search' | 'entities' | 'general';
   confidence: number;
 }
 
@@ -21,6 +21,8 @@ export interface FormattedResponse {
     tokensUsed?: number;
     processingTime?: number;
     extractedData?: any;
+    articlesCount?: number;
+    error?: string;
   };
 }
 
@@ -28,6 +30,13 @@ export class PromptEngineeringService {
   private articleMetadata: { categories: string[], sources: string[], totalCount: number } | null = null;
 
   private questionPatterns = {
+    articles_list: [
+      /\b(list|show|what) .*(articles?|knowledge|database|documents?)\b/i,
+      /\bwhat articles? .*(do you have|are available|can you access)\b/i,
+      /\bknowledge base\b/i,
+      /\bshow me .*(all|available) articles?\b/i,
+      /\bwhat .*(articles?|content|documents?) .*(loaded|indexed|available)\b/i
+    ],
     summary: [
       /\b(summarize|summary|overview|brief|outline|main points?)\b/i,
       /\bwhat is .+ about\b/i,
@@ -200,14 +209,61 @@ export class PromptEngineeringService {
     return introPatterns.some(pattern => pattern.test(query));
   }
 
-  generatePrompt(query: string, questionType: QuestionType, context: string): string {
+  generatePrompt(query: string, questionType: QuestionType, context: string, conversationHistory: any[] = []): string {
     // For general introduction queries, don't use specific article context
     const isIntroductionQuery = this.isIntroductionQuery(query);
     const baseContext = isIntroductionQuery ? '' : `Context from Articles:\n${context}\n\n`;
     
+    // Add conversation history context if available
+    let historyContext = '';
+    if (conversationHistory.length > 0) {
+      // Take only the last 10 messages to avoid context bloat
+      const recentHistory = conversationHistory.slice(-10);
+      historyContext = `Previous Conversation Context:\n${recentHistory.map(msg => 
+        `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
+      ).join('\n')}\n\n`;
+    }
+    
     switch (questionType.type) {
+      case 'articles_list':
+        return `${historyContext}User Query: ${query}
+
+You are Clarticle, an AI article analysis assistant. The user is asking about what articles are available in your knowledge base. You have access to a comprehensive database of processed articles.
+
+CRITICAL INSTRUCTION: Use ONLY the article information provided in the context below. Do NOT use your general knowledge or training data. Present the ACTUAL articles from the knowledge base.
+
+${baseContext}
+
+You must respond with the following format:
+
+## My Knowledge Base Articles
+
+I have access to a comprehensive collection of articles that have been processed and indexed for analysis. Here are the articles currently available in my knowledge base:
+
+${context || 'No articles currently loaded in the knowledge base.'}
+
+## What I Can Help You With
+
+Based on these specific articles, I can help you with:
+• **Article Analysis**: Detailed analysis of any specific article from the list above
+• **Cross-Article Comparisons**: Compare coverage, perspectives, or topics across these articles
+• **Topic Exploration**: Find all articles related to specific topics from my database
+• **Summary Generation**: Create summaries of individual articles or topic clusters
+• **Sentiment Analysis**: Analyze the tone and perspective of these articles
+• **Entity Extraction**: Identify key people, companies, and organizations mentioned
+
+## Ask Me About:
+• Specific articles: "Tell me about [article title]"
+• Topic searches: "What articles discuss AI/technology/business?"
+• Comparisons: "Compare how different sources cover [topic]"
+• Analysis: "Summarize all articles about [topic]"
+
+Feel free to ask me about any of these specific articles or request analysis on the topics they cover!
+
+IMPORTANT: Always refer to the ACTUAL articles listed above when answering questions. These are the real articles in my knowledge base, not hypothetical examples.`;
+
       case 'summary':
-        return `${baseContext}User Query: ${query}
+        return `${historyContext}${baseContext}User Query: ${query}
 
 You are an expert article analyst. Provide a comprehensive summary based on the context provided. Structure your response as follows:
 
@@ -239,7 +295,7 @@ You are an expert article analyst. Provide a comprehensive summary based on the 
 IMPORTANT: Include actual sentences and quotes directly from the provided context. Base your analysis entirely on the article content provided and include specific examples and direct quotes to support each point.`;
 
       case 'keywords':
-        return `${baseContext}User Query: ${query}
+        return `${historyContext}${baseContext}User Query: ${query}
 
 You are an expert content analyzer. Extract and analyze keywords and main topics directly from the provided articles. Structure your response as follows:
 
@@ -500,7 +556,7 @@ CRITICAL: Extract ONLY entities that are actually mentioned in the provided arti
 
       case 'general':
       default:
-        return `${baseContext}User Query: ${query}
+        return `${historyContext}${baseContext}User Query: ${query}
 
 I'm Clarticle, your AI article analysis assistant powered by Claude AI. I'm designed to provide clear, intelligent insights about articles using Retrieval-Augmented Generation (RAG) technology.
 
@@ -567,6 +623,7 @@ CRITICAL: Use ONLY information from the provided articles. Include direct quotes
 
   private getResponseFormat(type: QuestionType['type']): string {
     const formats = {
+      articles_list: 'articles_catalog',
       summary: 'structured_summary',
       keywords: 'keyword_list',
       sentiment: 'sentiment_analysis',

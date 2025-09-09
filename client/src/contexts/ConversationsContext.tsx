@@ -44,6 +44,11 @@ interface ConversationsContextType {
   addMessage: (message: Omit<Message, 'id' | 'created_at'>) => void;
   clearCurrentConversation: () => void;
   
+  // Conversation limits
+  getConversationLength: () => number;
+  isNearLimit: () => boolean;
+  getRemainingMessages: () => number;
+  
   // UI state
   isDrawerOpen: boolean;
   setDrawerOpen: (open: boolean) => void;
@@ -72,6 +77,10 @@ export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({ ch
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDrawerOpen, setDrawerOpen] = useState(false);
+
+  // Conversation limits configuration
+  const MAX_CONVERSATION_LENGTH = 20; // Maximum number of messages in a conversation
+  const WARNING_THRESHOLD = 4; // Warn when this many messages remain
 
   // Load conversations when user is authenticated
   useEffect(() => {
@@ -222,6 +231,20 @@ export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({ ch
     setMessages([]);
   };
 
+  // Conversation limit functions
+  const getConversationLength = (): number => {
+    return messages.length;
+  };
+
+  const isNearLimit = (): boolean => {
+    const remaining = getRemainingMessages();
+    return remaining <= WARNING_THRESHOLD && remaining > 0;
+  };
+
+  const getRemainingMessages = (): number => {
+    return Math.max(0, MAX_CONVERSATION_LENGTH - messages.length);
+  };
+
   const value: ConversationsContextType = {
     conversations,
     currentConversation,
@@ -235,6 +258,9 @@ export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({ ch
     deleteConversation,
     addMessage,
     clearCurrentConversation,
+    getConversationLength,
+    isNearLimit,
+    getRemainingMessages,
     isDrawerOpen,
     setDrawerOpen,
   };

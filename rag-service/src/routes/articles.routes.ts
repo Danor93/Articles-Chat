@@ -33,6 +33,17 @@ let processingStatus: ArticleProcessingStatus = {
   errors: []
 };
 
+// Store processed articles metadata
+interface ProcessedArticle {
+  url: string;
+  title: string;
+  category?: string;
+  processedAt: Date;
+  chunks: number;
+}
+
+let processedArticles: ProcessedArticle[] = [];
+
 async function fetchArticleContent(url: string): Promise<{ title: string; content: string }> {
   try {
     const response = await axios.get(url, {
@@ -112,6 +123,14 @@ router.post('/process',
     // Update article count in prompt engineering service
     promptEngineeringService.incrementArticleCount(url);
 
+    // Store processed article metadata
+    processedArticles.push({
+      url,
+      title: articleTitle,
+      processedAt: new Date(),
+      chunks: ids.length
+    });
+
     res.json({
       message: 'Article processed successfully',
       url,
@@ -176,11 +195,19 @@ async function processBatchAsync(urls: string[]): Promise<void> {
         try {
           console.log(`Processing article ${processingStatus.processed + 1}/${processingStatus.total}: ${url}`);
           
-          const { content } = await fetchArticleContent(url);
-          await langchainService.processArticle(url, content);
+          const { title, content } = await fetchArticleContent(url);
+          const ids = await langchainService.processArticle(url, content);
           
           // Update article count in prompt engineering service
           promptEngineeringService.incrementArticleCount(url);
+
+          // Store processed article metadata
+          processedArticles.push({
+            url,
+            title,
+            processedAt: new Date(),
+            chunks: ids.length
+          });
           
           processingStatus.processed++;
           console.log(`✓ Completed: ${url}`);
@@ -196,6 +223,83 @@ async function processBatchAsync(urls: string[]): Promise<void> {
   processingStatus.inProgress = false;
   console.log(`Batch processing completed. Processed: ${processingStatus.processed}/${processingStatus.total}, Errors: ${processingStatus.errors.length}`);
 }
+
+router.get('/list', async (req: Request, res: Response) => {
+  try {
+    // Read articles from the source file
+    const fs = require('fs');
+    const path = require('path');
+    
+    const articlesPath = process.env.ARTICLES_JSON_PATH || 
+      (process.env.NODE_ENV === 'production' ? '/app/data/articles.json' : path.join(__dirname, '../../../data/articles.json'));
+    
+    let sourceArticles = [];
+    if (fs.existsSync(articlesPath)) {
+      const fileContent = fs.readFileSync(articlesPath, 'utf-8');
+      sourceArticles = JSON.parse(fileContent);
+    }
+
+    // Combine source articles with any runtime processed articles
+    const allArticles = [
+      ...sourceArticles.map((article: any) => ({
+        url: article.url,
+        title: article.title,
+        category: article.category,
+        processedAt: new Date().toISOString(), // Default processed date
+        chunks: 3, // Estimated chunks
+        source: 'startup'
+      })),
+      ...processedArticles.map(article => ({
+        url: article.url,
+        title: article.title,
+        category: article.category,
+        processedAt: article.processedAt,
+        chunks: article.chunks,
+        source: 'runtime'
+      }))
+    ];
+
+    // Remove duplicates (prefer runtime over startup)
+    const uniqueArticles: any[] = [];
+    const seenUrls = new Set<string>();
+    
+    // First add runtime articles (higher priority)
+    allArticles.filter(a => a.source === 'runtime').forEach(article => {
+      if (!seenUrls.has(article.url)) {
+        uniqueArticles.push(article);
+        seenUrls.add(article.url);
+      }
+    });
+    
+    // Then add startup articles for URLs not seen
+    allArticles.filter(a => a.source === 'startup').forEach(article => {
+      if (!seenUrls.has(article.url)) {
+        uniqueArticles.push(article);
+        seenUrls.add(article.url);
+      }
+    });
+
+    // Sort by title for consistency
+    uniqueArticles.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+
+    res.json({
+      total: uniqueArticles.length,
+      articles: uniqueArticles.map(article => ({
+        url: article.url,
+        title: article.title,
+        category: article.category,
+        processedAt: article.processedAt,
+        chunks: article.chunks
+      }))
+    });
+  } catch (error) {
+    console.error('Articles list error:', error);
+    res.status(500).json({ 
+      error: 'Failed to get articles list',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
 
 router.get('/status', async (req: Request, res: Response) => {
   try {
