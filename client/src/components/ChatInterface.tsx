@@ -51,16 +51,17 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Send, Loader2, User, Bot, Copy, Check, Sparkles, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { chatApi, conversationsApi } from '@/lib/api';
+import { useConversations } from '@/contexts/ConversationsContext';
+import { chatApi } from '@/lib/api';
 import type { ApiError, ChatMessage } from '@/lib/api';
 
-// ChatInterfaceProps defines the interface for props-based state management
-// This design allows message persistence across tab navigation in the App component
+// ChatInterfaceProps - Simplified since conversations context handles state
 interface ChatInterfaceProps {
-  messages: ChatMessage[];                    // Current conversation messages
-  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>; // Message state updater
-  conversationId?: string;                    // Optional conversation ID for session continuity
-  setConversationId: React.Dispatch<React.SetStateAction<string | undefined>>; // Conversation ID updater
+  // Props are now optional since the conversations context manages state
+  messages?: ChatMessage[];
+  setMessages?: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
+  conversationId?: string;
+  setConversationId?: React.Dispatch<React.SetStateAction<string | undefined>>;
 }
 
 /**
@@ -73,13 +74,31 @@ interface ChatInterfaceProps {
  * - Complete error handling with user-friendly messages
  */
 export function ChatInterface({ 
-  messages, 
-  setMessages, 
-  conversationId, 
-  setConversationId 
-}: ChatInterfaceProps) {
+  messages: propMessages, 
+  setMessages: propSetMessages, 
+  conversationId: propConversationId, 
+  setConversationId: propSetConversationId 
+}: ChatInterfaceProps = {}) {
   // AUTHENTICATION STATE  
-  const { user } = useAuth(); // User is guaranteed to be authenticated at this point
+  const { user } = useAuth();
+  
+  // CONVERSATIONS CONTEXT
+  const { 
+    messages: contextMessages, 
+    currentConversation, 
+    createConversation,
+    addMessage,
+    clearCurrentConversation
+  } = useConversations();
+  
+  // Use context messages if available, otherwise fall back to props
+  const messages = contextMessages.length > 0 ? contextMessages.map(msg => ({
+    role: msg.role,
+    content: msg.content,
+    timestamp: msg.created_at
+  } as ChatMessage)) : propMessages || [];
+  
+  const conversationId = currentConversation?.id || propConversationId;
   
   // LOCAL STATE MANAGEMENT
   const [inputMessage, setInputMessage] = useState('');              // Current input text
@@ -147,51 +166,49 @@ export function ChatInterface({
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
-    // STEP 1: Create user message and update UI immediately (optimistic update)
-    const userMessage: ChatMessage = {
-      role: 'user',
-      content: inputMessage.trim(),
-      timestamp: new Date().toISOString(),
-    };
-
-    setMessages(prev => [...prev, userMessage]); // Immediate UI update
     const messageToSend = inputMessage.trim();
     setInputMessage('');     // Clear input immediately
     setError(null);          // Clear any previous errors
     setIsLoading(true);      // Show loading state
 
     try {
-      // STEP 2: Ensure we have a conversation (user is always authenticated)
+      // STEP 1: Ensure we have a conversation
       let currentConversationId = conversationId;
-      if (!conversationId) {
+      if (!currentConversationId) {
         // Create a new conversation with a title based on the first message
         const title = messageToSend.length > 50 
           ? messageToSend.substring(0, 47) + '...' 
           : messageToSend;
         
-        const newConversation = await conversationsApi.create({ title });
+        const newConversation = await createConversation(title);
         currentConversationId = newConversation.id;
-        setConversationId(currentConversationId);
       }
+
+      // STEP 2: Add user message to context immediately (optimistic update)
+      addMessage({
+        conversation_id: currentConversationId,
+        role: 'user',
+        content: messageToSend,
+        metadata: {}
+      });
 
       // STEP 3: Send message to Go backend → RAG service → Claude API
       const response = await chatApi.sendMessage(messageToSend, currentConversationId);
-      
-      // STEP 4: Conversation continuity management
-      if (response.conversation_id && !conversationId) {
-        setConversationId(response.conversation_id);
-      }
 
-      // STEP 5: Add AI response to conversation
-      const assistantMessage: ChatMessage = {
+      // STEP 4: Add AI response to context
+      addMessage({
+        conversation_id: currentConversationId,
         role: 'assistant',
         content: response.message,
-        timestamp: new Date().toISOString(),
-      };
+        metadata: {
+          tokens_used: response.tokens_used,
+          processing_time_ms: response.processing_time_ms,
+          cached: response.cached,
+          model: response.model
+        }
+      });
 
-      setMessages(prev => [...prev, assistantMessage]);
-
-      // STEP 6: Cache performance monitoring
+      // STEP 5: Cache performance monitoring
       if (response.cached) {
         console.log('Response served from cache'); // Performance indicator
       }
@@ -241,11 +258,15 @@ export function ChatInterface({
 
   /**
    * clearChat - Reset conversation state
-   * Clears messages, conversation ID, and any error states for fresh start
+   * Clears current conversation and any error states for fresh start
    */
   const clearChat = () => {
-    setMessages([]);
-    setConversationId(undefined);
+    // Clear current conversation in context
+    clearCurrentConversation();
+    
+    // Clear local states
+    if (propSetMessages) propSetMessages([]);
+    if (propSetConversationId) propSetConversationId(undefined);
     setError(null);
   };
 
