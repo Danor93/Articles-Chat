@@ -50,7 +50,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Send, Loader2, User, Bot, Copy, Check, Sparkles, AlertCircle } from 'lucide-react';
-import { chatApi } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { chatApi, conversationsApi } from '@/lib/api';
 import type { ApiError, ChatMessage } from '@/lib/api';
 
 // ChatInterfaceProps defines the interface for props-based state management
@@ -77,6 +78,9 @@ export function ChatInterface({
   conversationId, 
   setConversationId 
 }: ChatInterfaceProps) {
+  // AUTHENTICATION STATE  
+  const { user } = useAuth(); // User is guaranteed to be authenticated at this point
+  
   // LOCAL STATE MANAGEMENT
   const [inputMessage, setInputMessage] = useState('');              // Current input text
   const [isLoading, setIsLoading] = useState(false);                // Chat processing state
@@ -128,16 +132,17 @@ export function ChatInterface({
   /**
    * handleSendMessage - Core chat message processing function
    * 
+   * ENHANCED WITH AUTHENTICATION:
+   * - For authenticated users: Creates/uses persistent conversations
+   * - For anonymous users: Uses session-based temporary conversations
+   * - Seamless experience regardless of authentication state
+   * 
    * PROCESSING PIPELINE:
    * 1. Immediate UI update (optimistic) - user message appears instantly
-   * 2. API call to Go backend → RAG service → Claude
-   * 3. AI response integration with conversation continuity
-   * 4. Error handling with user-friendly message mapping
-   * 
-   * PERFORMANCE OPTIMIZATIONS:
-   * - Optimistic UI updates for immediate feedback
-   * - Conversation ID management for session continuity
-   * - Cache awareness and logging for performance monitoring
+   * 2. Create conversation if authenticated and no conversation exists
+   * 3. API call to Go backend → RAG service → Claude
+   * 4. AI response integration with conversation continuity
+   * 5. Error handling with user-friendly message mapping
    */
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
@@ -156,15 +161,28 @@ export function ChatInterface({
     setIsLoading(true);      // Show loading state
 
     try {
-      // STEP 2: Send message to Go backend → RAG service → Claude API
-      const response = await chatApi.sendMessage(messageToSend, conversationId);
+      // STEP 2: Ensure we have a conversation (user is always authenticated)
+      let currentConversationId = conversationId;
+      if (!conversationId) {
+        // Create a new conversation with a title based on the first message
+        const title = messageToSend.length > 50 
+          ? messageToSend.substring(0, 47) + '...' 
+          : messageToSend;
+        
+        const newConversation = await conversationsApi.create({ title });
+        currentConversationId = newConversation.id;
+        setConversationId(currentConversationId);
+      }
+
+      // STEP 3: Send message to Go backend → RAG service → Claude API
+      const response = await chatApi.sendMessage(messageToSend, currentConversationId);
       
-      // STEP 3: Conversation continuity management
+      // STEP 4: Conversation continuity management
       if (response.conversation_id && !conversationId) {
         setConversationId(response.conversation_id);
       }
 
-      // STEP 4: Add AI response to conversation
+      // STEP 5: Add AI response to conversation
       const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: response.message,
@@ -173,7 +191,7 @@ export function ChatInterface({
 
       setMessages(prev => [...prev, assistantMessage]);
 
-      // STEP 5: Cache performance monitoring
+      // STEP 6: Cache performance monitoring
       if (response.cached) {
         console.log('Response served from cache'); // Performance indicator
       }
@@ -181,7 +199,7 @@ export function ChatInterface({
       console.error('Chat error:', err);
       let errorMessage = 'Failed to send message. Please try again.';
       
-      // STEP 6: Error code mapping from backend to user-friendly messages
+      // STEP 7: Error code mapping from backend to user-friendly messages
       if (err && typeof err === 'object' && 'response' in err && (err as any).response?.data) {
         const apiError = (err as any).response.data as ApiError;
         switch (apiError.error) {
@@ -271,7 +289,9 @@ export function ChatInterface({
             </div>
             <div>
               <h1 className="text-lg font-semibold">Clarticle Assistant</h1>
-              <p className="text-xs text-muted-foreground">Powered by Claude AI</p>
+              <p className="text-xs text-muted-foreground">
+                Powered by Claude AI • Logged in as {user?.full_name}
+              </p>
             </div>
           </div>
           <Tooltip>
@@ -323,7 +343,8 @@ export function ChatInterface({
                   >
                     <h2 className="text-lg font-medium text-foreground mb-2">Welcome to Clarticle!</h2>
                     <p className="text-sm">Ask me anything about the articles in the system.</p>
-                    <p className="text-xs mt-2 opacity-80">Pro tip: Use the Articles tab to add new content to chat with.</p>
+                    <p className="text-xs mt-2 opacity-80">Your conversations are automatically saved to your account.</p>
+                    <p className="text-xs mt-1 opacity-60">Pro tip: Use the Articles tab to add new content to chat with.</p>
                   </motion.div>
                 </motion.div>
               )}
@@ -609,6 +630,7 @@ export function ChatInterface({
           </motion.div>
         </div>
       </div>
+
     </motion.div>
     </TooltipProvider>
   );

@@ -35,35 +35,7 @@ func RequireAuth(authService *AuthService) fiber.Handler {
 	}
 }
 
-// OptionalAuth is a middleware that validates session if token is present but doesn't require it
-func OptionalAuth(authService *AuthService) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		// Extract token from Authorization header
-		authHeader := c.Get("Authorization")
-		if authHeader == "" {
-			// No auth header, continue without user
-			return c.Next()
-		}
-
-		token, err := ExtractBearerToken(authHeader)
-		if err != nil {
-			// Invalid format, continue without user
-			return c.Next()
-		}
-
-		// Validate session
-		user, err := authService.ValidateSession(token)
-		if err != nil {
-			// Invalid token, continue without user
-			return c.Next()
-		}
-
-		// Store user in context
-		c.Locals(UserContextKey, user)
-
-		return c.Next()
-	}
-}
+// OptionalAuth has been removed - all endpoints now require authentication except signup/login
 
 // GetUserFromContext retrieves the authenticated user from the fiber context
 func GetUserFromContext(c *fiber.Ctx) (*models.User, error) {
@@ -74,15 +46,7 @@ func GetUserFromContext(c *fiber.Ctx) (*models.User, error) {
 	return user, nil
 }
 
-// GetUserFromContextOptional retrieves the authenticated user from the fiber context
-// Returns the user and true if authenticated, nil and false if not
-func GetUserFromContextOptional(c *fiber.Ctx) (*models.User, bool) {
-	user, ok := c.Locals(UserContextKey).(*models.User)
-	if !ok || user == nil {
-		return nil, false
-	}
-	return user, true
-}
+// GetUserFromContextOptional has been removed - all requests are now authenticated
 
 // handleAuthError handles authentication errors consistently
 func handleAuthError(c *fiber.Ctx, err error) error {

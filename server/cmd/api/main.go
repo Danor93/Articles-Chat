@@ -236,10 +236,10 @@ func main() {
 		authGroup.Get("/check-email", authHandler.HandleCheckEmail)                          // Check if email exists
 	}
 	
-	// Chat endpoints - main functionality for RAG-based conversations
+	// Chat endpoints - main functionality for RAG-based conversations (requires authentication)
 	if chatHandler != nil {
-		// Apply optional auth middleware to chat endpoint for conversation persistence
-		api.Post("/chat", auth.OptionalAuth(authService), chatHandler.HandleChat) // Process chat messages through RAG service
+		// Apply required auth middleware to chat endpoint - all chat requires authentication
+		api.Post("/chat", auth.RequireAuth(authService), chatHandler.HandleChat) // Process chat messages through RAG service
 	}
 	
 	// Conversation endpoints - chat history management (requires authentication)
@@ -253,12 +253,13 @@ func main() {
 		convGroup.Get("/:id/messages", conversationHandler.HandleGetConversationMessages) // Get conversation messages with pagination
 	}
 	
-	// Article management endpoints - CRUD operations for knowledge base
+	// Article management endpoints - CRUD operations for knowledge base (requires authentication)
 	if articleHandler != nil {
-		api.Post("/articles", articleHandler.HandleAddArticle)       // Add new article to RAG system
-		api.Get("/articles", articleHandler.HandleListArticles)       // List processed articles
-		api.Get("/articles/:id", articleHandler.HandleGetArticle)     // Get specific article details
-		api.Delete("/articles/:id", articleHandler.HandleDeleteArticle) // Remove article from system
+		articleGroup := api.Group("/articles", auth.RequireAuth(authService))
+		articleGroup.Post("/", articleHandler.HandleAddArticle)       // Add new article to RAG system
+		articleGroup.Get("/", articleHandler.HandleListArticles)       // List processed articles
+		articleGroup.Get("/:id", articleHandler.HandleGetArticle)     // Get specific article details
+		articleGroup.Delete("/:id", articleHandler.HandleDeleteArticle) // Remove article from system
 	}
 
 	// PHASE 11: GRACEFUL SHUTDOWN HANDLING

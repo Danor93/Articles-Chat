@@ -135,8 +135,15 @@ func (h *ChatHandler) HandleChat(c *fiber.Ctx) error {
 	defer cancel()
 
 	// STEP 6: USER AUTHENTICATION CHECK
-	// Check if user is authenticated (optional for conversation persistence)
-	user, isAuthenticated := auth.GetUserFromContextOptional(c)
+	// User is guaranteed to be authenticated (required for all chat requests)
+	user, err := auth.GetUserFromContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   "UNAUTHORIZED",
+			"message": "Authentication required",
+		})
+	}
+	isAuthenticated := true
 	
 	// STEP 7: CONVERSATION PERSISTENCE SETUP
 	var persistentConversationID uuid.UUID

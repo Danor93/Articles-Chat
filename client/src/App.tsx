@@ -4,7 +4,9 @@ import { ChatInterface } from '@/components/ChatInterface';
 import { ArticleManager } from '@/components/ArticleManager';
 import { Footer } from '@/components/Footer';
 import { ThemeProvider } from '@/components/theme-provider';
-import { ThemeToggle } from '@/components/theme-toggle';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { UserMenu } from '@/components/auth/UserMenu';
+import { AuthGuard } from '@/components/auth/AuthGuard';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +17,7 @@ import type { ChatMessage } from '@/lib/api';
 
 type View = 'chat' | 'articles';
 
-function App() {
+function AppContent() {
   const [currentView, setCurrentView] = useState<View>('chat');
   const [healthStatus, setHealthStatus] = useState<'checking' | 'healthy' | 'unhealthy'>('checking');
   
@@ -172,8 +174,8 @@ function App() {
                 </Tooltip>
               </div>
               
-              {/* Theme Toggle */}
-              <ThemeToggle />
+              {/* User Menu - Only show for authenticated users */}
+              <UserMenu />
             </div>
           </div>
         </div>
@@ -241,6 +243,16 @@ function App() {
     </div>
       </TooltipProvider>
     </ThemeProvider>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AuthGuard>
+        <AppContent />
+      </AuthGuard>
+    </AuthProvider>
   );
 }
 
