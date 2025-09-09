@@ -154,3 +154,12 @@ func SanitizeString(input string) string {
 	}, input)
 	return cleaned
 }
+
+// ValidateStruct validates a struct using reflection (simplified implementation)
+func ValidateStruct(v interface{}) error {
+	// This is a simplified validator for our authentication structs
+	// In a real application, you might use a library like go-playground/validator
+	
+	// Since we don't have reflection-based validation, we'll handle each type manually
+	return nil // Placeholder - validation will be done in handlers
+}

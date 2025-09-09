@@ -173,3 +173,8 @@ func validateConfig(config *Config) error {
 
 	return nil
 }
+
+// DatabaseURL returns the database connection string
+func (c *Config) DatabaseURL() string {
+	return c.Database.URL
+}

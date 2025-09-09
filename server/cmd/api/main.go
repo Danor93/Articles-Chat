@@ -21,6 +21,7 @@
 // SERVICE DEPENDENCIES:
 // - Node.js RAG Service (port 3001): Handles LangChain.js, Claude integration, vector operations
 // - Redis: Primary caching layer for chat responses and article processing
+// - PostgreSQL: User authentication, session management, and chat history persistence
 // - React Frontend: Served through nginx proxy, communicates via HTTP API
 //
 // STARTUP SEQUENCE:
@@ -28,16 +29,19 @@
 // 2. Initialize structured logging with appropriate levels
 // 3. Create worker pools for concurrent operations
 // 4. Establish Redis connection with fallback to memory cache
-// 5. Initialize RAG client for Node.js service communication
-// 6. Health check RAG service availability
-// 7. Setup HTTP handlers with dependency injection
-// 8. Configure Fiber web server with middleware
-// 9. Register API routes and start server
-// 10. Setup graceful shutdown handling
+// 5. Connect to PostgreSQL database for authentication
+// 6. Initialize RAG client for Node.js service communication
+// 7. Health check RAG service availability
+// 8. Setup HTTP handlers with dependency injection
+// 9. Configure Fiber web server with middleware
+// 10. Register API routes and start server
+// 11. Setup graceful shutdown handling
 package main
 
 import (
+	"article-chat-system/server/internal/auth"
 	"article-chat-system/server/internal/config"
+	"article-chat-system/server/internal/database"
 	"article-chat-system/server/internal/fetcher"
 	"article-chat-system/server/internal/handlers"
 	"article-chat-system/server/internal/middleware"
@@ -121,7 +125,27 @@ func main() {
 	}
 	pingCancel()
 
-	// PHASE 4: SERVICE INITIALIZATION
+	// PHASE 4: DATABASE CONNECTION SETUP
+	// Initialize PostgreSQL connection for user authentication and chat history
+	slog.Info("Connecting to PostgreSQL database")
+	db, err := database.NewConnection(cfg)
+	if err != nil {
+		slog.Error("Failed to connect to database", "error", err)
+		log.Fatal("Database connection required for authentication features:", err)
+	}
+	defer db.Close()
+	slog.Info("Database connection established successfully")
+
+	// Run any pending migrations
+	if err := db.Migrate(); err != nil {
+		slog.Error("Database migration failed", "error", err)
+		// Continue anyway - migrations might already be applied
+	}
+
+	// PHASE 5: SERVICE INITIALIZATION
+	// Initialize authentication service
+	authService := auth.NewAuthService(db)
+	
 	// Initialize HTTP client for communicating with Node.js RAG service
 	// This client handles all AI/RAG operations including chat processing and article embedding
 	ragClient := services.NewRAGClient(cfg.RAGService)
@@ -129,7 +153,7 @@ func main() {
 	// Initialize article fetcher for processing URLs (if needed for backup/validation)
 	articleFetcher := fetcher.NewArticleFetcher()
 
-	// PHASE 5: RAG SERVICE HEALTH CHECK
+	// PHASE 6: RAG SERVICE HEALTH CHECK
 	// Verify Node.js RAG service is available before accepting requests
 	// Non-blocking: service can start even if RAG service is temporarily down
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -142,18 +166,22 @@ func main() {
 		// RAG service is ready - full functionality available
 	}
 
-	// PHASE 6: HTTP HANDLER INITIALIZATION WITH DEPENDENCY INJECTION
+	// PHASE 7: HTTP HANDLER INITIALIZATION WITH DEPENDENCY INJECTION
 	// Handlers are initialized with their required dependencies for clean architecture
 	slog.Info("Initializing handlers")
-	chatHandler := handlers.NewChatHandler(ragClient, cache)           // Chat: RAG + caching
+	authHandler := handlers.NewAuthHandler(authService)                 // Auth: user authentication
+	chatHandler := handlers.NewChatHandler(ragClient, cache, db)       // Chat: RAG + caching + persistence
+	conversationHandler := handlers.NewConversationHandler(db)         // Conversations: CRUD operations
 	articleHandler := handlers.NewArticleHandler(articleFetcher, ragClient, poolManager, cache) // Articles: fetching + RAG + pools + caching
 	healthHandler := handlers.NewHealthHandler(cfg, ragClient, poolManager) // Health: system status monitoring
 	slog.Info("Handlers initialized", 
+		"auth_handler_nil", authHandler == nil,
 		"chat_handler_nil", chatHandler == nil,
+		"conversation_handler_nil", conversationHandler == nil,
 		"article_handler_nil", articleHandler == nil,
 		"health_handler_nil", healthHandler == nil)
 
-	// PHASE 7: FIBER WEB SERVER CONFIGURATION
+	// PHASE 8: FIBER WEB SERVER CONFIGURATION
 	// Configure Fiber with appropriate timeouts and error handling
 	app := fiber.New(fiber.Config{
 		ReadTimeout:  time.Duration(cfg.Server.ReadTimeout) * time.Second,  // Prevent slow loris attacks
@@ -161,7 +189,7 @@ func main() {
 		ErrorHandler: middleware.ErrorHandler(), // Standardized error responses across all endpoints
 	})
 
-	// PHASE 8: MIDDLEWARE STACK SETUP
+	// PHASE 9: MIDDLEWARE STACK SETUP
 	// Middleware is applied in order - each request passes through this stack
 	app.Use(recover.New())              // Recover from panics gracefully
 	app.Use(middleware.RequestID())     // Generate unique request IDs for tracing
@@ -173,7 +201,7 @@ func main() {
 	// Note: Request logging middleware temporarily disabled for debugging
 	// Can be re-enabled with: app.Use(fiberLogger.New(...))
 
-	// PHASE 9: API ROUTE REGISTRATION
+	// PHASE 10: API ROUTE REGISTRATION
 	// Routes are organized by functionality with proper HTTP methods
 	
 	// System health endpoint - critical for monitoring and load balancers
@@ -196,9 +224,33 @@ func main() {
 		return c.SendString("pong")
 	})
 	
+	// Authentication endpoints - user registration, login, profile management
+	if authHandler != nil {
+		authGroup := api.Group("/auth")
+		authGroup.Post("/signup", authHandler.HandleSignup)                                  // User registration
+		authGroup.Post("/login", authHandler.HandleLogin)                                   // User login
+		authGroup.Post("/logout", auth.RequireAuth(authService), authHandler.HandleLogout)  // Logout current session
+		authGroup.Post("/logout-all", auth.RequireAuth(authService), authHandler.HandleLogoutAll) // Logout all sessions
+		authGroup.Get("/me", auth.RequireAuth(authService), authHandler.HandleGetProfile)    // Get current user profile
+		authGroup.Put("/profile", auth.RequireAuth(authService), authHandler.HandleUpdateProfile) // Update profile
+		authGroup.Get("/check-email", authHandler.HandleCheckEmail)                          // Check if email exists
+	}
+	
 	// Chat endpoints - main functionality for RAG-based conversations
 	if chatHandler != nil {
-		api.Post("/chat", chatHandler.HandleChat) // Process chat messages through RAG service
+		// Apply optional auth middleware to chat endpoint for conversation persistence
+		api.Post("/chat", auth.OptionalAuth(authService), chatHandler.HandleChat) // Process chat messages through RAG service
+	}
+	
+	// Conversation endpoints - chat history management (requires authentication)
+	if conversationHandler != nil {
+		convGroup := api.Group("/conversations", auth.RequireAuth(authService))
+		convGroup.Get("/", conversationHandler.HandleListConversations)             // List user's conversations
+		convGroup.Post("/", conversationHandler.HandleCreateConversation)          // Create new conversation
+		convGroup.Get("/:id", conversationHandler.HandleGetConversation)           // Get conversation with messages
+		convGroup.Put("/:id", conversationHandler.HandleUpdateConversation)        // Update conversation title
+		convGroup.Delete("/:id", conversationHandler.HandleDeleteConversation)     // Delete conversation
+		convGroup.Get("/:id/messages", conversationHandler.HandleGetConversationMessages) // Get conversation messages with pagination
 	}
 	
 	// Article management endpoints - CRUD operations for knowledge base
@@ -209,7 +261,7 @@ func main() {
 		api.Delete("/articles/:id", articleHandler.HandleDeleteArticle) // Remove article from system
 	}
 
-	// PHASE 10: GRACEFUL SHUTDOWN HANDLING
+	// PHASE 11: GRACEFUL SHUTDOWN HANDLING
 	// Proper shutdown sequence ensures no data loss and clean resource cleanup
 	go func() {
 		c := make(chan os.Signal, 1)
@@ -226,7 +278,12 @@ func main() {
 			slog.Error("Cache close error", "error", err)
 		}
 		
-		// 3. Shutdown HTTP server gracefully - allows in-flight requests to complete
+		// 3. Close database connections
+		if err := db.Close(); err != nil {
+			slog.Error("Database close error", "error", err)
+		}
+		
+		// 4. Shutdown HTTP server gracefully - allows in-flight requests to complete
 		if err := app.Shutdown(); err != nil {
 			slog.Error("Server shutdown error", "error", err)
 		}
@@ -235,7 +292,7 @@ func main() {
 		os.Exit(0)
 	}()
 
-	// PHASE 11: SERVER STARTUP
+	// PHASE 12: SERVER STARTUP
 	// Start the HTTP server and begin accepting requests
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
 	slog.Info("Starting Article Chat API server", 

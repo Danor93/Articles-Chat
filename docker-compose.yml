@@ -42,10 +42,12 @@ services:
       # Service communication configuration
       - RAG_SERVICE_URL=http://rag-service-nodejs:3001 # Internal Docker network URL
       - REDIS_URL=redis://redis:6379 # Redis connection string
-      - GO_ENV=production # Production optimizations
+      - DATABASE_URL=postgresql://clarticle_user:clarticle_pass123@postgres:5432/clarticle?sslmode=disable # PostgreSQL connection
+      - GO_ENV=development # Development environment for Docker Compose
     depends_on:
       - rag-service-nodejs # Wait for RAG service
       - redis # Wait for Redis cache
+      - postgres # Wait for PostgreSQL database
     networks:
       - app-network # Internal service network
     restart: unless-stopped # High availability restart policy
@@ -109,9 +111,43 @@ services:
     # - Article processing result caching
     # - Session and conversation state persistence
 
+  # ============================================================================
+  # POSTGRESQL DATABASE SERVICE - User Authentication & Chat History Storage
+  # ============================================================================
+  postgres:
+    image: postgres:15-alpine # Lightweight PostgreSQL image
+    environment:
+      - POSTGRES_DB=clarticle # Database name
+      - POSTGRES_USER=clarticle_user # Database user
+      - POSTGRES_PASSWORD=clarticle_pass123 # Database password (should be in .env for production)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Persistent data storage
+      - ./data/migrations:/docker-entrypoint-initdb.d # Auto-run migrations on first start
+    ports:
+      - "5432:5432" # PostgreSQL connection port
+    networks:
+      - app-network # Internal service network
+    restart: unless-stopped # High availability restart policy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clarticle_user -d clarticle"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # PostgreSQL provides:
+    # - User authentication data storage
+    # - Conversation and message persistence
+    # - Session management
+    # - ACID compliance for data integrity
+
 # ============================================================================
 # NETWORKING CONFIGURATION
 # ============================================================================
 networks:
   app-network:
     driver: bridge # Docker bridge network for service isolation
+
+# ============================================================================
+# VOLUMES CONFIGURATION
+# ============================================================================
+volumes:
+  postgres_data: # Persistent PostgreSQL data storage

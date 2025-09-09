@@ -2,7 +2,7 @@
 //
 // This handler manages all chat-related operations in the Article-Chat system.
 // It serves as the bridge between the React frontend and the Node.js RAG service,
-// implementing intelligent caching, request validation, and both streaming and non-streaming responses.
+// implementing intelligent caching, request validation, conversation persistence, and both streaming and non-streaming responses.
 //
 // CORE RESPONSIBILITIES:
 // 1. HTTP Request Processing: Validates and sanitizes incoming chat requests from React frontend
@@ -11,6 +11,7 @@
 // 4. Streaming Support: Handles both regular and Server-Sent Events (SSE) streaming responses
 // 5. Error Handling: Provides standardized error responses with proper HTTP status codes
 // 6. Performance Optimization: Reduces Claude API calls through smart caching (99.4% faster repeated requests)
+// 7. Conversation Persistence: Saves conversations and messages to PostgreSQL for authenticated users
 //
 // CACHING STRATEGY:
 // - Cache Key Generation: SHA256 hash of normalized message + conversation context
@@ -23,10 +24,12 @@
 // 1. Parse and validate request body (message, conversation ID, streaming preference)
 // 2. Sanitize inputs to prevent injection attacks
 // 3. Generate or reuse conversation ID for session continuity
-// 4. Check cache for similar normalized questions
-// 5. On cache miss: Forward to RAG service → Claude API → Vector search
-// 6. Cache successful responses for future requests
-// 7. Return JSON response or initiate SSE streaming
+// 4. Load conversation history from database for authenticated users
+// 5. Check cache for similar normalized questions
+// 6. On cache miss: Forward to RAG service → Claude API → Vector search
+// 7. Save user and assistant messages to database for authenticated users
+// 8. Cache successful responses for future requests
+// 9. Return JSON response or initiate SSE streaming
 //
 // ERROR HANDLING STRATEGY:
 // - Validates message length (1-4000 characters)
@@ -37,6 +40,8 @@
 package handlers
 
 import (
+	"article-chat-system/server/internal/auth"
+	"article-chat-system/server/internal/database"
 	"article-chat-system/server/internal/errors"
 	"article-chat-system/server/internal/models"
 	"article-chat-system/server/internal/services"
@@ -57,15 +62,18 @@ import (
 type ChatHandler struct {
 	ragClient *services.RAGClient    // HTTP client for Node.js RAG service communication  
 	cache     services.CacheService  // Redis cache with memory fallback for performance
+	db        *database.DB          // Database for conversation persistence
 }
 
 // NewChatHandler creates a new chat handler with required dependencies
 // ragClient: HTTP client for communicating with Node.js RAG service
 // cache: Caching service (Redis primary, memory fallback) for performance optimization
-func NewChatHandler(ragClient *services.RAGClient, cache services.CacheService) *ChatHandler {
+// db: Database for conversation persistence
+func NewChatHandler(ragClient *services.RAGClient, cache services.CacheService, db *database.DB) *ChatHandler {
 	return &ChatHandler{
 		ragClient: ragClient,
 		cache:     cache,
+		db:        db,
 	}
 }
 
@@ -126,9 +134,48 @@ func (h *ChatHandler) HandleChat(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(c.Context(), 2*time.Minute)
 	defer cancel()
 
-	// STEP 6: CONVERSATION HISTORY SETUP
-	// TODO: In production, load conversation history from database for context
-	conversationHistory := []models.ChatMessage{}
+	// STEP 6: USER AUTHENTICATION CHECK
+	// Check if user is authenticated (optional for conversation persistence)
+	user, isAuthenticated := auth.GetUserFromContextOptional(c)
+	
+	// STEP 7: CONVERSATION PERSISTENCE SETUP
+	var persistentConversationID uuid.UUID
+	var conversationHistory []models.ChatMessage
+	
+	if isAuthenticated {
+		// Handle conversation persistence for authenticated users
+		if req.ConversationID != "" {
+			// Try to parse existing conversation ID
+			if parsedID, err := uuid.Parse(req.ConversationID); err == nil {
+				// Verify user owns this conversation
+				if err := h.db.CheckConversationOwnership(ctx, parsedID, user.ID); err == nil {
+					persistentConversationID = parsedID
+					// Load existing conversation history
+					if messages, err := h.db.GetConversationMessages(ctx, parsedID); err == nil {
+						conversationHistory = convertDBMessagesToChatMessages(messages)
+					}
+				} else {
+					slog.Warn("User attempted to access conversation they don't own", 
+						"user_id", user.ID, "conversation_id", req.ConversationID)
+					// Create new conversation instead
+					persistentConversationID = uuid.UUID{}
+				}
+			}
+		}
+		
+		// Create new conversation if needed
+		if persistentConversationID == uuid.Nil {
+			// Will create conversation after we get the first user message
+			persistentConversationID = uuid.New()
+			conversationHistory = []models.ChatMessage{}
+		}
+		
+		// Update conversation ID in request for consistency
+		req.ConversationID = persistentConversationID.String()
+	} else {
+		// Non-authenticated users: use session-based conversation (no persistence)
+		conversationHistory = []models.ChatMessage{}
+	}
 
 	// Add current user message to conversation context
 	userMessage := models.ChatMessage{
@@ -139,12 +186,12 @@ func (h *ChatHandler) HandleChat(c *fiber.Ctx) error {
 	}
 	conversationHistory = append(conversationHistory, userMessage)
 
-	// STEP 7: STREAMING VS REGULAR RESPONSE HANDLING
+	// STEP 8: STREAMING VS REGULAR RESPONSE HANDLING
 	if req.Stream {
-		return h.handleStreamingChat(c, ctx, req, conversationHistory)
+		return h.handleStreamingChat(c, ctx, req, conversationHistory, isAuthenticated, user, persistentConversationID)
 	}
 
-	// STEP 8: INTELLIGENT CACHING LOGIC
+	// STEP 9: INTELLIGENT CACHING LOGIC
 	// Generate cache key from normalized message + conversation context
 	conversationContext := fmt.Sprintf("conv_%s", req.ConversationID)
 	cacheKey := services.GenerateCacheKey(req.Message, conversationContext)
@@ -158,6 +205,12 @@ func (h *ChatHandler) HandleChat(c *fiber.Ctx) error {
 		
 		// Mark response as cached for transparency
 		cachedResponse.Cached = true
+		
+		// Even for cached responses, persist to database if authenticated
+		if isAuthenticated {
+			go h.persistCachedConversation(ctx, persistentConversationID, user.ID, req.Message, cachedResponse.Message)
+		}
+		
 		return c.JSON(cachedResponse)
 	}
 
@@ -165,7 +218,7 @@ func (h *ChatHandler) HandleChat(c *fiber.Ctx) error {
 		"conversation_id", req.ConversationID,
 		"cache_key", cacheKey[:8]+"...")
 
-	// STEP 9: RAG SERVICE PROCESSING
+	// STEP 10: RAG SERVICE PROCESSING
 	// Forward to Node.js service for LangChain + Claude + vector search processing
 	response, err := h.ragClient.ProcessChat(ctx, req.Message, req.ConversationID, conversationHistory)
 	if err != nil {
@@ -191,19 +244,33 @@ func (h *ChatHandler) HandleChat(c *fiber.Ctx) error {
 		))
 	}
 
-	// STEP 10: CACHE SUCCESSFUL RESPONSES
+	// STEP 11: CONVERSATION PERSISTENCE
+	// Save conversation and messages to database for authenticated users
+	if isAuthenticated {
+		if err := h.persistConversation(ctx, persistentConversationID, user.ID, req.Message, response); err != nil {
+			slog.Error("Failed to persist conversation", "error", err, 
+				"user_id", user.ID, "conversation_id", persistentConversationID)
+			// Don't fail the request if persistence fails
+		} else {
+			// Update response with persistent conversation ID
+			response.ConversationID = persistentConversationID.String()
+		}
+	}
+
+	// STEP 12: CACHE SUCCESSFUL RESPONSES
 	// Store in cache with 24-hour TTL for future requests
 	// Non-blocking: request succeeds even if caching fails
 	if cacheErr := h.cache.Set(ctx, cacheKey, response, 24*time.Hour); cacheErr != nil {
 		slog.Warn("Failed to cache response", "error", cacheErr, "cache_key", cacheKey[:8]+"...")
 	}
 
-	// STEP 11: RESPONSE AND LOGGING
+	// STEP 13: RESPONSE AND LOGGING
 	slog.Info("Chat request processed successfully",
 		"conversation_id", req.ConversationID,
 		"processing_time_ms", response.ProcessingTime,
 		"sources_count", len(response.Sources),
-		"tokens_used", response.TokensUsed)
+		"tokens_used", response.TokensUsed,
+		"authenticated", isAuthenticated)
 
 	return c.JSON(response)
 }
@@ -233,7 +300,7 @@ func (h *ChatHandler) errorResponse(c *fiber.Ctx, err error) error {
 	})
 }
 
-func (h *ChatHandler) handleStreamingChat(c *fiber.Ctx, ctx context.Context, req models.ChatRequest, history []models.ChatMessage) error {
+func (h *ChatHandler) handleStreamingChat(c *fiber.Ctx, ctx context.Context, req models.ChatRequest, history []models.ChatMessage, isAuthenticated bool, user *models.User, persistentConversationID uuid.UUID) error {
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
 	c.Set("Connection", "keep-alive")
@@ -282,3 +349,85 @@ func (h *ChatHandler) handleStreamingChat(c *fiber.Ctx, ctx context.Context, req
 
 	return nil
 }
+
+// Helper methods for conversation persistence
+
+// persistConversation saves a new conversation and message pair to the database
+func (h *ChatHandler) persistConversation(ctx context.Context, conversationID uuid.UUID, userID uuid.UUID, userMessage string, response *models.ChatResponse) error {
+	// Create conversation if it doesn't exist
+	_, err := h.db.GetConversation(ctx, conversationID)
+	if err != nil {
+		// Conversation doesn't exist, create it with the specific ID
+		title := database.GenerateConversationTitle(userMessage)
+		if createErr := h.createConversationWithID(ctx, conversationID, userID, title); createErr != nil {
+			return createErr
+		}
+	}
+
+	// Prepare metadata for assistant message
+	metadata := map[string]interface{}{
+		"processing_time_ms": response.ProcessingTime,
+		"tokens_used":        response.TokensUsed,
+		"cached":            response.Cached,
+		"sources_count":     len(response.Sources),
+	}
+
+	if len(response.Sources) > 0 {
+		metadata["sources"] = response.Sources
+	}
+
+	// Save both messages in a transaction
+	_, _, err = h.db.CreateMessagePair(ctx, conversationID, userMessage, response.Message, metadata)
+	return err
+}
+
+// persistCachedConversation handles persistence for cached responses (runs in goroutine)
+func (h *ChatHandler) persistCachedConversation(ctx context.Context, conversationID uuid.UUID, userID uuid.UUID, userMessage string, assistantMessage string) {
+	// Create a new context with timeout for the background operation
+	bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Create conversation if it doesn't exist
+	_, err := h.db.GetConversation(bgCtx, conversationID)
+	if err != nil {
+		title := database.GenerateConversationTitle(userMessage)
+		_, err = h.db.CreateConversation(bgCtx, userID, title)
+		if err != nil {
+			h.createConversationWithID(bgCtx, conversationID, userID, title)
+		}
+	}
+
+	// Save messages with cached flag
+	metadata := map[string]interface{}{
+		"cached": true,
+	}
+
+	h.db.CreateMessagePair(bgCtx, conversationID, userMessage, assistantMessage, metadata)
+}
+
+// createConversationWithID creates a conversation with a specific ID (fallback method)
+func (h *ChatHandler) createConversationWithID(ctx context.Context, conversationID uuid.UUID, userID uuid.UUID, title string) error {
+	// Direct SQL insert with specific ID (bypass the regular CreateConversation method)
+	query := `
+		INSERT INTO conversations (id, user_id, title)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (id) DO NOTHING
+	`
+	_, err := h.db.ExecContext(ctx, query, conversationID, userID, title)
+	return err
+}
+
+// convertDBMessagesToChatMessages converts database messages to chat messages for context
+func convertDBMessagesToChatMessages(dbMessages []models.Message) []models.ChatMessage {
+	chatMessages := make([]models.ChatMessage, len(dbMessages))
+	for i, msg := range dbMessages {
+		chatMessages[i] = models.ChatMessage{
+			ID:        msg.ID.String(),
+			Role:      msg.Role,
+			Content:   msg.Content,
+			Timestamp: msg.CreatedAt,
+		}
+	}
+	return chatMessages
+}
+
