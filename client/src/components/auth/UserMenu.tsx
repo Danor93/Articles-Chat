@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Avatar } from '../ui/avatar';
 import { Card } from '../ui/card';
@@ -19,6 +19,24 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className }) => {
   const { theme, setTheme } = useTheme();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Handle clicks outside the dropdown to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDropdown]);
 
   if (!isAuthenticated || !user) {
     return null;
@@ -43,7 +61,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className }) => {
 
   return (
     <>
-      <div className={`relative ${className}`}>
+      <div ref={dropdownRef} className={`relative ${className}`}>
         <button
           onClick={() => setShowDropdown(!showDropdown)}
           className="flex items-center space-x-2 hover:bg-accent hover:text-accent-foreground rounded-md p-2"
@@ -57,12 +75,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className }) => {
         </button>
 
         {showDropdown && (
-          <>
-            <div 
-              className="fixed inset-0 z-10" 
-              onClick={() => setShowDropdown(false)}
-            />
-            <Card className="absolute right-0 top-full mt-2 w-64 z-20 p-4 space-y-2">
+            <Card className="absolute right-0 top-full mt-2 w-64 z-50 p-4 space-y-2 shadow-lg border">
               <div className="border-b pb-2 mb-2">
                 <p className="font-medium">{user.full_name}</p>
                 <p className="text-sm text-muted-foreground">{user.email}</p>
@@ -170,7 +183,6 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className }) => {
                 Sign Out
               </Button>
             </Card>
-          </>
         )}
       </div>
 
