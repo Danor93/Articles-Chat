@@ -4,7 +4,6 @@ import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { Document } from '@langchain/core/documents';
 import { PromptTemplate } from '@langchain/core/prompts';
 import { claudeService } from './claude.service';
-import { embeddingsService } from './embeddings.service';
 import { faissVectorStoreService } from './faiss-vectorstore.service';
 import { promptEngineeringService, type FormattedResponse } from './prompt-engineering.service';
 import axios from 'axios';

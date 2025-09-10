@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
 import { langchainService } from '../services/langchain.service';
-import { vectorStoreService } from '../services/vectorstore.service';
 import { faissVectorStoreService } from '../services/faiss-vectorstore.service';
 import { promptEngineeringService } from '../services/prompt-engineering.service';
 import axios from 'axios';
@@ -349,13 +348,14 @@ router.get('/list', async (req: Request, res: Response) => {
 
 router.get('/status', async (req: Request, res: Response) => {
   try {
-    const documentCount = await vectorStoreService.getDocumentCount();
+    // FAISS doesn't expose document count directly, use stats from langchain service
+    const stats = await langchainService.getStats();
     
     res.json({
       processing: processingStatus,
       vectorStore: {
-        totalDocuments: documentCount,
-        healthy: await vectorStoreService.checkHealth(),
+        totalDocuments: stats.totalDocuments || 0,
+        healthy: faissVectorStoreService.isHealthy(),
       }
     });
   } catch (error) {
@@ -369,7 +369,7 @@ router.get('/status', async (req: Request, res: Response) => {
 
 router.get('/health', async (req: Request, res: Response) => {
   try {
-    const vectorStoreHealthy = await vectorStoreService.checkHealth();
+    const vectorStoreHealthy = faissVectorStoreService.isHealthy();
     const stats = await langchainService.getStats();
     
     res.json({
@@ -392,8 +392,8 @@ router.get('/health', async (req: Request, res: Response) => {
 
 router.delete('/reset', async (req: Request, res: Response) => {
   try {
-    await vectorStoreService.deleteCollection();
-    await vectorStoreService.initialize();
+    await faissVectorStoreService.deleteAll();
+    await faissVectorStoreService.initialize();
     
     processingStatus = {
       processed: 0,
