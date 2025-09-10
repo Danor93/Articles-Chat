@@ -120,16 +120,12 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
     try {
       // Use provided history if available, otherwise fall back to internal memory
       const historyToUse = providedHistory.length > 0 ? providedHistory : (this.conversationHistory[conversationId] || []);
-      
-      console.log(`Using conversation history: ${historyToUse.length} messages`);
 
       // Classify the question type
       const questionType = promptEngineeringService.classifyQuestion(query);
-      console.log(`Question classified as: ${questionType.type} (confidence: ${questionType.confidence})`);
 
       // Handle articles list requests specially
       if (questionType.type === 'articles_list') {
-        console.log('Handling articles list request...');
         return await this.handleArticlesListRequest(query, conversationId, historyToUse);
       }
 
@@ -191,12 +187,9 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
     try {
       // Use provided history if available, otherwise fall back to internal memory
       const historyToUse = providedHistory.length > 0 ? providedHistory : (this.conversationHistory[conversationId] || []);
-      
-      console.log(`Using conversation history for streaming: ${historyToUse.length} messages`);
 
       // Classify the question type
       const questionType = promptEngineeringService.classifyQuestion(query);
-      console.log(`Question classified as: ${questionType.type} (confidence: ${questionType.confidence})`);
 
       // Get relevant documents
       const relevantDocs = await faissVectorStoreService.similaritySearch(query, parseInt(process.env.RAG_SEARCH_RESULTS || '4'));
@@ -321,24 +314,61 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
 
   private async handleArticlesListRequest(query: string, conversationId: string, historyToUse: ChatMessage[]): Promise<FormattedResponse> {
     try {
-      console.log('Inside handleArticlesListRequest method');
-      // Read articles directly from file instead of API call
-      const fs = require('fs');
-      const path = require('path');
-      
-      const articlesPath = process.env.ARTICLES_JSON_PATH || 
-        (process.env.NODE_ENV === 'production' ? '/app/data/articles.json' : path.join(__dirname, '../../../data/articles.json'));
-      
+      // Try to get articles from the API first (preferred method)
       let sourceArticles = [];
-      if (fs.existsSync(articlesPath)) {
-        const fileContent = fs.readFileSync(articlesPath, 'utf-8');
-        sourceArticles = JSON.parse(fileContent);
+      let articlesData = { total: 0, articles: [] };
+      
+      try {
+        // Make HTTP request to the articles list endpoint
+        const axios = require('axios');
+        const baseUrl = process.env.API_BASE_URL || 'http://localhost:3001';
+        
+        const response = await axios.get(`${baseUrl}/api/articles/list`, {
+          timeout: 5000,
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (response.data) {
+          articlesData = response.data;
+          sourceArticles = response.data.articles || [];
+        }
+      } catch (apiError) {
+        // Fallback to reading from file
+        const fs = require('fs');
+        const path = require('path');
+        
+        // Try multiple possible paths for the articles.json file
+        const possiblePaths = [
+          process.env.ARTICLES_JSON_PATH,
+          path.join(__dirname, '../../../data/articles.json'),
+          path.join(process.cwd(), 'data/articles.json'),
+          '/app/data/articles.json',
+          'C:/Users/danor/Desktop/RnD/Article-Chat/data/articles.json'
+        ].filter(p => p); // Remove undefined/null paths
+        
+        for (const articlesPath of possiblePaths) {
+          try {
+            if (fs.existsSync(articlesPath)) {
+              const fileContent = fs.readFileSync(articlesPath, 'utf-8');
+              sourceArticles = JSON.parse(fileContent);
+              articlesData = {
+                total: sourceArticles.length,
+                articles: sourceArticles
+              };
+              break;
+            }
+          } catch (fileError) {
+            // Silent fallback - continue trying other paths
+          }
+        }
       }
-
-      const articlesData = {
-        total: sourceArticles.length,
-        articles: sourceArticles
-      };
+      
+      // Update prompt engineering service with metadata
+      if (sourceArticles.length > 0) {
+        promptEngineeringService.setArticleMetadata(sourceArticles);
+      }
 
       let articlesListText = '';
       if (articlesData.articles && articlesData.articles.length > 0) {
@@ -346,12 +376,9 @@ Provide a comprehensive and helpful answer based on the provided articles:`);
 
 ${articlesData.articles.map((article: any, index: number) => {
   const domain = article.url ? new URL(article.url).hostname.replace('www.', '') : 'unknown';
-  const processedDate = new Date(article.processedAt).toLocaleDateString();
   return `${index + 1}. **${article.title}**
    - Source: ${domain}
-   - URL: ${article.url}
-   - Processed: ${processedDate}
-   - Chunks: ${article.chunks}`;
+   - URL: ${article.url}`;
 }).join('\n\n')}
 
 ## Categories Available
@@ -371,26 +398,20 @@ To add articles, you would typically:
       }
 
       // Generate the specialized prompt
-      console.log('Generating specialized prompt...');
-      console.log('Articles list text:', articlesListText.substring(0, 300) + '...');
       const specializedPrompt = promptEngineeringService.generatePrompt(query, 
         { type: 'articles_list', confidence: 1.0 }, 
         articlesListText, 
         historyToUse
       );
-      console.log('Generated prompt:', specializedPrompt.substring(0, 500) + '...');
 
       // Use Claude service to format the response
-      console.log('Formatting messages for Claude...');
       const messages = claudeService.formatMessagesFromHistory(historyToUse);
       messages.push({
         role: 'user',
         content: specializedPrompt,
       } as any);
 
-      console.log('Calling Claude service...');
       const rawResponse = await claudeService.generateResponse(messages);
-      console.log('Got response from Claude:', rawResponse.substring(0, 100) + '...');
       
       // Format the response
       const formattedResponse = promptEngineeringService.formatResponse(rawResponse, 
@@ -412,6 +433,11 @@ To add articles, you would typically:
     } catch (error) {
       console.error('Error handling articles list request:', error);
       console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        type: error instanceof Error ? error.constructor.name : typeof error,
+        error: error
+      });
       
       // Fallback response
       const fallbackResponse = `I apologize, but I'm having trouble accessing the articles list at the moment. This could be because:

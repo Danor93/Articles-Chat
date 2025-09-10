@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { langchainService } from '../services/langchain.service';
 import { vectorStoreService } from '../services/vectorstore.service';
+import { faissVectorStoreService } from '../services/faiss-vectorstore.service';
 import { promptEngineeringService } from '../services/prompt-engineering.service';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
@@ -43,6 +44,23 @@ interface ProcessedArticle {
 }
 
 let processedArticles: ProcessedArticle[] = [];
+
+function extractTitleFromUrl(url: string): string {
+  try {
+    // Extract meaningful title from URL path
+    const urlPath = new URL(url).pathname;
+    const segments = urlPath.split('/').filter(s => s.length > 0);
+    const lastSegment = segments[segments.length - 1];
+    
+    // Convert URL-style text to readable title
+    return lastSegment
+      .replace(/[-_]/g, ' ')
+      .replace(/\b\w/g, l => l.toUpperCase())
+      .substring(0, 100); // Limit length
+  } catch {
+    return 'Unknown Article';
+  }
+}
 
 async function fetchArticleContent(url: string): Promise<{ title: string; content: string }> {
   try {
@@ -105,7 +123,7 @@ router.post('/process',
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { url, title }: ProcessArticleRequest = req.body;
 
-    console.log(`Processing single article: ${url}`);
+    // Process single article
 
     // Check if services are initialized
     if (!langchainService.isInitialized()) {
@@ -193,8 +211,6 @@ async function processBatchAsync(urls: string[]): Promise<void> {
     await Promise.allSettled(
       batch.map(async (url) => {
         try {
-          console.log(`Processing article ${processingStatus.processed + 1}/${processingStatus.total}: ${url}`);
-          
           const { title, content } = await fetchArticleContent(url);
           const ids = await langchainService.processArticle(url, content);
           
@@ -210,7 +226,6 @@ async function processBatchAsync(urls: string[]): Promise<void> {
           });
           
           processingStatus.processed++;
-          console.log(`✓ Completed: ${url}`);
         } catch (error) {
           const errorMessage = `Failed to process ${url}: ${error instanceof Error ? error.message : 'Unknown error'}`;
           processingStatus.errors.push(errorMessage);
@@ -226,7 +241,38 @@ async function processBatchAsync(urls: string[]): Promise<void> {
 
 router.get('/list', async (req: Request, res: Response) => {
   try {
-    // Read articles from the source file
+    // Get all articles from the vector store (the source of truth)
+    const vectorStore = faissVectorStoreService.getVectorStore();
+    const vectorStoreArticles: ProcessedArticle[] = [];
+    
+    if (vectorStore) {
+      try {
+        // Search with a very common term to get many documents
+        const searchResults = await vectorStore.similaritySearch('the', 1000);
+        const uniqueArticlesMap = new Map<string, ProcessedArticle>();
+        
+        // Extract unique articles from search results
+        searchResults.forEach(doc => {
+          if (doc.metadata && doc.metadata.source && !uniqueArticlesMap.has(doc.metadata.source)) {
+            const url = doc.metadata.source;
+            const title = extractTitleFromUrl(url);
+            uniqueArticlesMap.set(url, {
+              url,
+              title,
+              category: 'unknown',
+              processedAt: doc.metadata.processed_at || new Date(),
+              chunks: doc.metadata.total_chunks || 1
+            });
+          }
+        });
+        
+        vectorStoreArticles.push(...Array.from(uniqueArticlesMap.values()));
+      } catch (error) {
+        console.log('Could not retrieve articles from vector store:', error);
+      }
+    }
+    
+    // Read articles from the source file as fallback
     const fs = require('fs');
     const path = require('path');
     
@@ -239,15 +285,11 @@ router.get('/list', async (req: Request, res: Response) => {
       sourceArticles = JSON.parse(fileContent);
     }
 
-    // Combine source articles with any runtime processed articles
+    // Combine all sources: vector store (highest priority), runtime, and file
     const allArticles = [
-      ...sourceArticles.map((article: any) => ({
-        url: article.url,
-        title: article.title,
-        category: article.category,
-        processedAt: new Date().toISOString(), // Default processed date
-        chunks: 3, // Estimated chunks
-        source: 'startup'
+      ...vectorStoreArticles.map(article => ({
+        ...article,
+        source: 'vectorstore'
       })),
       ...processedArticles.map(article => ({
         url: article.url,
@@ -256,27 +298,31 @@ router.get('/list', async (req: Request, res: Response) => {
         processedAt: article.processedAt,
         chunks: article.chunks,
         source: 'runtime'
+      })),
+      ...sourceArticles.map((article: any) => ({
+        url: article.url,
+        title: article.title,
+        category: article.category,
+        processedAt: new Date().toISOString(),
+        chunks: 3,
+        source: 'file'
       }))
     ];
 
-    // Remove duplicates (prefer runtime over startup)
+    // Remove duplicates (prefer vector store > runtime > file)
     const uniqueArticles: any[] = [];
     const seenUrls = new Set<string>();
     
-    // First add runtime articles (higher priority)
-    allArticles.filter(a => a.source === 'runtime').forEach(article => {
-      if (!seenUrls.has(article.url)) {
-        uniqueArticles.push(article);
-        seenUrls.add(article.url);
-      }
-    });
+    // Priority order: vectorstore > runtime > file
+    const priorityOrder = ['vectorstore', 'runtime', 'file'];
     
-    // Then add startup articles for URLs not seen
-    allArticles.filter(a => a.source === 'startup').forEach(article => {
-      if (!seenUrls.has(article.url)) {
-        uniqueArticles.push(article);
-        seenUrls.add(article.url);
-      }
+    priorityOrder.forEach(source => {
+      allArticles.filter(a => a.source === source).forEach(article => {
+        if (!seenUrls.has(article.url)) {
+          uniqueArticles.push(article);
+          seenUrls.add(article.url);
+        }
+      });
     });
 
     // Sort by title for consistency

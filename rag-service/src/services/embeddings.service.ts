@@ -36,7 +36,7 @@ export class EmbeddingsService {
     
     for (let i = 0; i < texts.length; i += actualBatchSize) {
       const batch = texts.slice(i, i + actualBatchSize);
-      console.log(`Processing embedding batch ${Math.floor(i / actualBatchSize) + 1}/${Math.ceil(texts.length / actualBatchSize)}`);
+      // Process batch silently
       
       try {
         const batchEmbeddings = await this.embedDocuments(batch);

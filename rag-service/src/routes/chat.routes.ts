@@ -44,8 +44,7 @@ router.post('/',
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { query, conversationId = 'default', conversationHistory = [] }: ChatRequest = req.body;
 
-    console.log(`Processing chat query: ${query.substring(0, 100)}...`);
-    console.log(`Conversation history length: ${conversationHistory.length}`);
+    // Process chat query
 
     // Check if services are initialized
     if (!langchainService.isInitialized()) {
@@ -78,8 +77,7 @@ router.post('/stream',
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { query, conversationId = 'default', conversationHistory = [] }: ChatRequest = req.body;
 
-    console.log(`Processing streaming chat query: ${query.substring(0, 100)}...`);
-    console.log(`Conversation history length: ${conversationHistory.length}`);
+    // Process streaming chat query
 
     // Check if services are initialized
     if (!langchainService.isInitialized()) {

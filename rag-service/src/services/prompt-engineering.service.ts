@@ -75,6 +75,33 @@ export class PromptEngineeringService {
   };
 
   classifyQuestion(query: string): QuestionType {
+    // Special handling for article list queries
+    // Check if user is asking about ALL articles vs specific articles
+    const lowerQuery = query.toLowerCase();
+    
+    // Patterns that strongly indicate wanting ALL articles
+    const allArticlesPatterns = [
+      /which articles?.*(you have|are in|available)/i,
+      /what articles?.*(you have|are in|available)/i,
+      /list.*articles/i,
+      /show.*all.*articles/i,
+      /your.*knowledge base/i,
+      /what.*in your.*knowledge/i,
+      /articles.*information about/i,
+      /what.*you know about/i
+    ];
+    
+    // Check for "all articles" intent first
+    for (const pattern of allArticlesPatterns) {
+      if (pattern.test(query)) {
+        // Additional check: if query contains specific topic words after "about", it's a search
+        if (!/about\s+\w+/.test(lowerQuery) || /about\s+(what|which|all|your)/.test(lowerQuery)) {
+          return { type: 'articles_list', confidence: 0.95 };
+        }
+      }
+    }
+    
+    // Regular classification
     let bestMatch: QuestionType = { type: 'general', confidence: 0 };
 
     for (const [type, patterns] of Object.entries(this.questionPatterns)) {
@@ -153,10 +180,11 @@ export class PromptEngineeringService {
       const domain = new URL(newArticleUrl).hostname.replace('www.', '');
       if (!this.articleMetadata.sources.includes(domain)) {
         this.articleMetadata.sources.push(domain);
-        console.log(`✓ Added new source domain: ${domain}`);
-        console.log(`✓ Updated article count: ${this.articleMetadata.totalCount} articles from ${this.articleMetadata.sources.length} sources`);
+        // Added new source domain
+        this.articleMetadata.totalCount++;
       } else {
-        console.log(`✓ Article count updated: ${this.articleMetadata.totalCount} articles (existing source: ${domain})`);
+        // Updated existing source count
+        this.articleMetadata.totalCount++;
       }
     } catch (error) {
       console.warn(`Could not extract domain from URL: ${newArticleUrl}`, error);
@@ -557,6 +585,13 @@ CRITICAL: Extract ONLY entities that are actually mentioned in the provided arti
       case 'general':
       default:
         return `${historyContext}${baseContext}User Query: ${query}
+
+INTENT DETECTION: First, determine if the user is asking about:
+1. Listing all available articles in the knowledge base (e.g., "which articles do you have", "what's in your knowledge base", "show me your articles")
+2. Searching for specific articles on a topic (e.g., "articles about AI", "which articles discuss climate change")
+3. General question that needs context from articles
+
+If the user is asking for a LIST of ALL articles (option 1), IGNORE the context provided above and instead use the article list information provided in the system context.
 
 I'm Clarticle, your AI article analysis assistant powered by Claude AI. I'm designed to provide clear, intelligent insights about articles using Retrieval-Augmented Generation (RAG) technology.
 
