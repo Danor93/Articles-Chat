@@ -1,28 +1,33 @@
 # Go API Gateway
 
-This service acts as the API gateway for the Article Chat system. It handles HTTP requests from the frontend, manages caching with Redis, and forwards requests to the RAG service.
+This service acts as the API gateway for the Article Chat system. It handles HTTP requests from the frontend, manages user authentication with PostgreSQL, caches responses with Redis, and forwards requests to the RAG service.
 
 ## What it does
 
 - Routes API requests between frontend and backend services
+- **User Authentication**: Secure signup, login, and session management with PostgreSQL
+- **Conversation History**: Persistent chat storage and retrieval
 - Caches responses in Redis for fast repeated queries
 - Handles concurrent requests with worker pools
 - Provides health check endpoints
 
 ## Requirements
 
-- Go 1.22 or higher
+- Go 1.24 or higher
+- PostgreSQL 15+ (for authentication and data storage)
 - Redis (optional, will use memory cache if not available)
 
 ## Setup
 
 1. Copy the environment file:
+
 ```bash
 cd server
 cp .env.example .env
 ```
 
 2. Install dependencies:
+
 ```bash
 go mod tidy
 go mod download
@@ -40,13 +45,24 @@ The server will start on http://localhost:8080
 
 ## Available endpoints
 
+### System
+
 - `GET /api/health` - Health check
-- `POST /api/chat` - Send chat messages
-- `POST /api/articles` - Add new articles
-- `GET /api/articles` - List articles
 
-## Environment variables
+### Authentication
 
-- `RAG_SERVICE_URL` - URL of the RAG service (default: http://localhost:3001)
-- `REDIS_URL` - Redis connection URL (default: redis://localhost:6379)
-- `PORT` - Server port (default: 8080)
+- `POST /api/auth/signup` - User registration
+- `POST /api/auth/login` - User login
+- `GET /api/auth/me` - Get current user profile
+- `POST /api/auth/logout` - Logout current session
+
+### Chat & Conversations
+
+- `POST /api/chat` - Send chat messages (requires auth)
+- `GET /api/conversations` - List user conversations (requires auth)
+- `POST /api/conversations` - Create new conversation (requires auth)
+
+### Articles
+
+- `POST /api/articles` - Add new articles (requires auth)
+- `GET /api/articles` - List articles (requires auth)

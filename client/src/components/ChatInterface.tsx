@@ -49,7 +49,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Send, Loader2, User, Bot, Copy, Check, Sparkles, AlertCircle } from 'lucide-react';
+import { Send, Loader2, User, Bot, Copy, Check, Sparkles, AlertCircle, MessageSquarePlus, RotateCcw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConversations } from '@/contexts/ConversationsContext';
 import { chatApi } from '@/lib/api';
@@ -301,51 +301,66 @@ export function ChatInterface({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-      {/* Header - Fixed at top */}
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex-shrink-0 border-b bg-gradient-to-r from-blue-50/90 via-purple-50/90 to-pink-50/90 dark:from-slate-900/90 dark:via-purple-900/30 dark:to-blue-900/30 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 py-3 min-h-[70px] border-purple-200/50 dark:border-purple-700/50"
-      >
-        <div className="flex items-center justify-between w-full min-w-0">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="absolute -inset-1 bg-gradient-to-r from-blue-400/30 via-purple-400/30 to-pink-400/30 rounded-full blur-sm animate-pulse-subtle" />
-              <Avatar className="h-10 w-10 relative">
-                <AvatarFallback className="bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-white">
-                  <Sparkles className="h-5 w-5" />
-                </AvatarFallback>
-              </Avatar>
+      {/* Header - Only visible when no conversation */}
+      <AnimatePresence>
+        {messages.length === 0 && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="flex-shrink-0 border-b bg-gradient-to-r from-blue-50/90 via-purple-50/90 to-pink-50/90 dark:from-slate-900/90 dark:via-purple-900/30 dark:to-blue-900/30 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 py-3 min-h-[70px] border-purple-200/50 dark:border-purple-700/50"
+          >
+            <div className="flex items-center justify-between w-full min-w-0">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-blue-400/30 via-purple-400/30 to-pink-400/30 rounded-full blur-sm animate-pulse-subtle" />
+                  <Avatar className="h-10 w-10 relative">
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-white">
+                      <Sparkles className="h-5 w-5" />
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-lg font-semibold">Clarticle Assistant</h1>
+                  <p className="text-xs text-muted-foreground">
+                    Powered by Claude AI • Logged in as {user?.full_name}
+                  </p>
+                </div>
+              </div>
+              
+              {/* New Chat Action - Only shows when no messages */}
+              <div className="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                      <Button 
+                        variant="ghost"
+                        size="sm" 
+                        onClick={clearChat}
+                        className="group relative overflow-hidden bg-gradient-to-r from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 dark:hover:from-blue-900/50 dark:hover:to-purple-900/50 border border-blue-200/50 dark:border-blue-700/50 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20"
+                      >
+                        <div className="relative flex items-center gap-2">
+                          <MessageSquarePlus className="h-4 w-4 text-blue-600 dark:text-blue-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
+                          <span className="text-sm font-medium text-blue-600 dark:text-blue-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                            New Chat
+                          </span>
+                        </div>
+                      </Button>
+                    </motion.div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Start a new conversation</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg font-semibold">Clarticle Assistant</h1>
-              <p className="text-xs text-muted-foreground">
-                Powered by Claude AI • Logged in as {user?.full_name}
-              </p>
-            </div>
-          </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={clearChat}
-                  className="transition-all hover:shadow-md"
-                >
-                  Clear Chat
-                </Button>
-              </motion.div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Clear all messages and start a new conversation</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Messages Area - Scrollable content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         <ScrollArea className="h-full">
           <div className="px-4 py-4">
             <div className="space-y-6 w-full max-w-3xl mx-auto min-w-0">
@@ -613,6 +628,58 @@ export function ChatInterface({
       {/* Input Area - Fixed at bottom */}
       <div className="flex-shrink-0 border-t bg-gradient-to-r from-blue-50/50 via-purple-50/50 to-pink-50/50 dark:from-slate-900/50 dark:via-purple-900/20 dark:to-blue-900/20 px-4 py-4 border-purple-200/50 dark:border-purple-700/50">
         <div className="w-full max-w-4xl mx-auto min-w-0">
+          {/* Quick Actions Bar - Above input when conversation exists */}
+          <AnimatePresence>
+            {messages.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: "auto" }}
+                exit={{ opacity: 0, y: 10, height: 0 }}
+                className="flex items-center justify-between mb-3 px-1"
+              >
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="opacity-60">Conversation • {messages.length} messages</span>
+                  {isNearLimit() && (
+                    <span className="text-amber-600 dark:text-amber-400">
+                      • {getRemainingMessages()} left
+                    </span>
+                  )}
+                </div>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <motion.div 
+                      whileHover={{ scale: 1.05 }} 
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <Button
+                        onClick={clearChat}
+                        variant="ghost"
+                        size="sm"
+                        className="group relative h-7 px-3 text-xs bg-gradient-to-r from-blue-50/80 to-purple-50/80 hover:from-blue-100 hover:to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 dark:hover:from-blue-900/50 dark:hover:to-purple-900/50 border border-blue-200/30 dark:border-blue-700/30 transition-all duration-200"
+                      >
+                        <div className="relative flex items-center gap-1.5">
+                          <motion.div
+                            whileHover={{ rotate: 90 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <RotateCcw className="h-3 w-3 text-blue-600 dark:text-blue-400 group-hover:text-purple-600 dark:group-hover:text-purple-400" />
+                          </motion.div>
+                          <span className="font-medium text-blue-600 dark:text-blue-400 group-hover:text-purple-600 dark:group-hover:text-purple-400">
+                            New Chat
+                          </span>
+                        </div>
+                      </Button>
+                    </motion.div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Start a fresh conversation</p>
+                  </TooltipContent>
+                </Tooltip>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <motion.div 
             className="relative"
             initial={{ scale: 0.95 }}
@@ -628,55 +695,56 @@ export function ChatInterface({
               className="resize-none border-2 focus:border-purple-500 transition-all duration-200 hover:border-purple-300 text-base p-4 pr-16 overflow-hidden leading-6 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm"
               disabled={isLoading}
             />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <motion.div
-                  className="absolute bottom-2 right-2"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!inputMessage.trim() || isLoading}
-                    size="sm"
-                    className="h-10 w-10 p-0 rounded-full relative overflow-hidden group bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 border-0 shadow-lg"
+            <div className="absolute bottom-2 right-2 flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                   >
-                    <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/10 to-primary/0"
-                      animate={{ x: ["-100%", "200%"] }}
-                      transition={{ duration: 3, repeat: Infinity, repeatDelay: 1 }}
-                    />
-                    <AnimatePresence mode="wait">
-                      {isLoading ? (
-                        <motion.div
-                          key="loading"
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1, rotate: 360 }}
-                          exit={{ scale: 0 }}
-                          transition={{ rotate: { duration: 1, repeat: Infinity, ease: "linear" } }}
-                        >
-                          <Loader2 className="h-4 w-4" />
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          key="send"
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          exit={{ scale: 0 }}
-                          whileHover={{ x: 2, y: -2 }}
-                          className="relative z-10"
-                        >
-                          <Send className="h-4 w-4" />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </Button>
-                </motion.div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{isLoading ? "Processing..." : "Send message (Enter)"}</p>
-              </TooltipContent>
-            </Tooltip>
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!inputMessage.trim() || isLoading}
+                      size="sm"
+                      className="h-10 w-10 p-0 rounded-full relative overflow-hidden group bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 border-0 shadow-lg"
+                    >
+                      <motion.div
+                        className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/10 to-primary/0"
+                        animate={{ x: ["-100%", "200%"] }}
+                        transition={{ duration: 3, repeat: Infinity, repeatDelay: 1 }}
+                      />
+                      <AnimatePresence mode="wait">
+                        {isLoading ? (
+                          <motion.div
+                            key="loading"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1, rotate: 360 }}
+                            exit={{ scale: 0 }}
+                            transition={{ rotate: { duration: 1, repeat: Infinity, ease: "linear" } }}
+                          >
+                            <Loader2 className="h-4 w-4" />
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="send"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            exit={{ scale: 0 }}
+                            whileHover={{ x: 2, y: -2 }}
+                            className="relative z-10"
+                          >
+                            <Send className="h-4 w-4" />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </Button>
+                  </motion.div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isLoading ? "Processing..." : "Send message (Enter)"}</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </motion.div>
         </div>
       </div>

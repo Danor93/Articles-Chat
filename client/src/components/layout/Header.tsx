@@ -31,10 +31,10 @@ export const Header: React.FC<HeaderProps> = ({
       transition={{ type: "spring", stiffness: 100 }}
       className="border-b bg-gradient-to-r from-white/80 via-blue-50/80 to-purple-50/80 dark:from-slate-900/80 dark:via-purple-900/40 dark:to-blue-900/40 backdrop-blur-xl sticky top-0 z-50 border-purple-200/50 dark:border-purple-700/50"
     >
-      <div className="container mx-auto py-4" style={{ paddingLeft: '0.5rem', paddingRight: '1rem' }}>
-        <div className="flex items-center justify-between">
+      <div className="w-full py-4">
+        <div className="flex items-center justify-between pl-2 pr-4">
           {/* Left Side - Chat History Toggle (absolute left edge) + Logo */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
             {/* Chat History Toggle - Absolute Left Edge (authenticated users only) */}
             {isAuthenticated && onToggleChatHistory && (
               <motion.div
@@ -49,9 +49,9 @@ export const Header: React.FC<HeaderProps> = ({
                       onClick={onToggleChatHistory}
                       variant="ghost"
                       size="lg"
-                      className="w-12 h-12 p-0 hover:bg-purple-100/80 dark:hover:bg-purple-900/80 transition-all duration-200 hover:scale-105 rounded-xl border border-transparent hover:border-purple-200/50 dark:hover:border-purple-700/50"
+                      className="w-14 h-14 p-0 hover:bg-purple-100/80 dark:hover:bg-purple-900/80 transition-all duration-200 hover:scale-105 rounded-xl border border-transparent hover:border-purple-200/50 dark:hover:border-purple-700/50"
                     >
-                      <PanelLeft className="h-7 w-7 text-purple-700 dark:text-purple-300 stroke-[2.5]" />
+                      <PanelLeft className="h-8 w-8 text-purple-700 dark:text-purple-300 stroke-[2.5]" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">

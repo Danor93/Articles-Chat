@@ -13,29 +13,32 @@ graph TD
         A[React Client]
     end
 
-    A --> |HTTP/API| B
+    A <--> |HTTP/API| B
 
     subgraph "Clarticle Backend Services"
         B[Go API Gateway]
-        B --> |HTTP| C
+        B <--> |HTTP| C
         B --> |Cache| D[Redis Cache]
         C[Node.js RAG Service]
-        C --> |Embeddings| E[FAISS Vector Store]
-        C --> |API| F[Claude AI API]
+        C <--> |Embeddings| E[FAISS Vector Store]
+        C <--> |API| F[Claude AI API]
         C --> |Fetch & Process| G[Web Articles]
     end
 
     subgraph "Data Layer"
         E --> H[Local Vector Storage]
         I[articles.json]
+        J[PostgreSQL Database]
     end
 
     I --> |Load on Startup| C
+    B <--> |SQL| J
 
     style A fill:#61dafb,stroke:#21262d,stroke-width:2px,color:#000
     style B fill:#0969da,stroke:#21262d,stroke-width:2px,color:#fff
     style C fill:#2ea043,stroke:#21262d,stroke-width:2px,color:#fff
     style D fill:#cf222e,stroke:#21262d,stroke-width:2px,color:#fff
+    style J fill:#336791,stroke:#21262d,stroke-width:2px,color:#fff
     style F fill:#fb8500,stroke:#21262d,stroke-width:2px,color:#000
     style G fill:#6e7781,stroke:#21262d,stroke-width:2px,color:#fff
     style I fill:#6e7781,stroke:#21262d,stroke-width:2px,color:#fff
@@ -128,7 +131,8 @@ Article-Chat/
 
 ### Backend (API Gateway)
 
-- **Go 1.22+** with Fiber framework
+- **Go 1.24+** with Fiber framework
+- **PostgreSQL 15** for user authentication and data persistence
 - **Worker pools** for concurrent request handling
 - **Redis** for response caching
 - **Structured logging** with slog
@@ -145,10 +149,13 @@ Article-Chat/
 
 - **Docker** & **Docker Compose** for containerization
 - **Multi-stage builds** for optimized images
+- **PostgreSQL Alpine** for lightweight database container
 
 ## ✨ Key Features
 
+- **User Authentication**: Secure user registration, login, and session management
 - **Intelligent Chat**: Ask questions about your articles and get contextual answers
+- **Conversation History**: Persistent chat history with conversation management
 - **Article Management**: Add articles via URL for processing
 - **Local Embeddings**: Free embeddings using HuggingFace models
 - **Response Caching**: Lightning-fast repeated queries with Redis
@@ -211,9 +218,10 @@ Key environment variables:
 
 ## 🔮 Future Enhancements
 
-*Potential features for extended development:*
+_Potential features for extended development:_
 
-- **User Authentication**: PostgreSQL-based authentication to protect backend services, manage users, conversation history, and sessions
 - **Streaming Responses**: Real-time response streaming
+- **Advanced Analytics**: User engagement metrics and conversation analytics
+- **Multi-tenant Support**: Organization and team management
 - **Testing Suite**: Unit and integration tests
 - **K8s Deployment**: Kubernetes manifests and CI/CD pipelines

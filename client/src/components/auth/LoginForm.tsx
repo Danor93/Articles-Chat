@@ -20,18 +20,59 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignu
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [showPassword, setShowPassword] = useState(false);
+
+  const validateField = (name: string, value: string): string | null => {
+    switch (name) {
+      case 'email':
+        if (!value.trim()) return 'Email is required';
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(value)) return 'Please enter a valid email address';
+        return null;
+      case 'password':
+        if (!value) return 'Password is required';
+        if (value.length < 8) return 'Password must be at least 8 characters';
+        return null;
+      default:
+        return null;
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    // Clear error when user starts typing
+    
+    // Validate field on change
+    const fieldError = validateField(name, value);
+    setValidationErrors(prev => ({
+      ...prev,
+      [name]: fieldError || ''
+    }));
+    
+    // Clear global error when user starts typing
     if (error) setError(null);
+  };
+
+  const validateForm = (): boolean => {
+    const errors: {[key: string]: string} = {};
+    
+    Object.keys(formData).forEach(key => {
+      const error = validateField(key, formData[key as keyof typeof formData]);
+      if (error) errors[key] = error;
+    });
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLoading) return;
+
+    if (!validateForm()) {
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
@@ -57,7 +98,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignu
     }
   };
 
-  const isValid = formData.email.trim() && formData.password;
+  const isValid = formData.email.trim() && formData.password && 
+                  Object.values(validationErrors).every(error => !error);
 
   return (
     <Card className="w-full max-w-md mx-auto p-6">
@@ -83,8 +125,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignu
               placeholder="Enter your email"
               required
               disabled={isLoading}
-              className="w-full"
+              className={`w-full ${validationErrors.email ? 'border-red-500' : ''}`}
             />
+            {validationErrors.email && (
+              <p className="text-xs text-red-500 mt-1">{validationErrors.email}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -101,7 +146,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignu
                 placeholder="Enter your password"
                 required
                 disabled={isLoading}
-                className="w-full pr-10"
+                className={`w-full pr-10 ${validationErrors.password ? 'border-red-500' : ''}`}
               />
               <button
                 type="button"
@@ -116,6 +161,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignu
                 )}
               </button>
             </div>
+            {validationErrors.password && (
+              <p className="text-xs text-red-500 mt-1">{validationErrors.password}</p>
+            )}
           </div>
 
           {error && (

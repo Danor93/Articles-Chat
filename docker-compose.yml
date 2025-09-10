@@ -42,7 +42,6 @@ services:
       # Service communication configuration
       - RAG_SERVICE_URL=http://rag-service-nodejs:3001 # Internal Docker network URL
       - REDIS_URL=redis://redis:6379 # Redis connection string
-      - DATABASE_URL=postgresql://clarticle_user:clarticle_pass123@postgres:5432/clarticle?sslmode=disable # PostgreSQL connection
       - GO_ENV=development # Development environment for Docker Compose
     depends_on:
       - rag-service-nodejs # Wait for RAG service
@@ -116,10 +115,8 @@ services:
   # ============================================================================
   postgres:
     image: postgres:15-alpine # Lightweight PostgreSQL image
-    environment:
-      - POSTGRES_DB=clarticle # Database name
-      - POSTGRES_USER=clarticle_user # Database user
-      - POSTGRES_PASSWORD=clarticle_pass123 # Database password (should be in .env for production)
+    env_file:
+      - ./server/.env # Read PostgreSQL environment variables from server .env
     volumes:
       - postgres_data:/var/lib/postgresql/data # Persistent data storage
       - ./data/migrations:/docker-entrypoint-initdb.d # Auto-run migrations on first start
