@@ -80,7 +80,7 @@ func main() {
 	if cfg.Server.Environment == "development" {
 		opts.Level = slog.LevelDebug
 	}
-	
+
 	handler := slog.NewTextHandler(os.Stdout, opts)
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
@@ -90,7 +90,7 @@ func main() {
 	// ArticleWorkers: Handle article fetching and processing (5 concurrent)
 	// Workers: General purpose worker pool for other operations (10 concurrent)
 	poolConfig := workers.PoolConfig{
-		ArticleWorkers: 5, // Optimized for article fetching without overwhelming external services
+		ArticleWorkers: 5,  // Optimized for article fetching without overwhelming external services
 		Workers:        10, // General purpose pool for misc operations
 	}
 	poolManager := workers.NewPoolManager(poolConfig)
@@ -145,11 +145,11 @@ func main() {
 	// PHASE 5: SERVICE INITIALIZATION
 	// Initialize authentication service
 	authService := auth.NewAuthService(db)
-	
+
 	// Initialize HTTP client for communicating with Node.js RAG service
 	// This client handles all AI/RAG operations including chat processing and article embedding
 	ragClient := services.NewRAGClient(cfg.RAGService)
-	
+
 	// Initialize article fetcher for processing URLs (if needed for backup/validation)
 	articleFetcher := fetcher.NewArticleFetcher()
 
@@ -169,12 +169,12 @@ func main() {
 	// PHASE 7: HTTP HANDLER INITIALIZATION WITH DEPENDENCY INJECTION
 	// Handlers are initialized with their required dependencies for clean architecture
 	slog.Info("Initializing handlers")
-	authHandler := handlers.NewAuthHandler(authService)                 // Auth: user authentication
-	chatHandler := handlers.NewChatHandler(ragClient, cache, db)       // Chat: RAG + caching + persistence
-	conversationHandler := handlers.NewConversationHandler(db)         // Conversations: CRUD operations
+	authHandler := handlers.NewAuthHandler(authService)                                         // Auth: user authentication
+	chatHandler := handlers.NewChatHandler(ragClient, cache, db)                                // Chat: RAG + caching + persistence
+	conversationHandler := handlers.NewConversationHandler(db)                                  // Conversations: CRUD operations
 	articleHandler := handlers.NewArticleHandler(articleFetcher, ragClient, poolManager, cache) // Articles: fetching + RAG + pools + caching
-	healthHandler := handlers.NewHealthHandler(cfg, ragClient, poolManager) // Health: system status monitoring
-	slog.Info("Handlers initialized", 
+	healthHandler := handlers.NewHealthHandler(cfg, ragClient, poolManager)                     // Health: system status monitoring
+	slog.Info("Handlers initialized",
 		"auth_handler_nil", authHandler == nil,
 		"chat_handler_nil", chatHandler == nil,
 		"conversation_handler_nil", conversationHandler == nil,
@@ -186,15 +186,15 @@ func main() {
 	app := fiber.New(fiber.Config{
 		ReadTimeout:  time.Duration(cfg.Server.ReadTimeout) * time.Second,  // Prevent slow loris attacks
 		WriteTimeout: time.Duration(cfg.Server.WriteTimeout) * time.Second, // Ensure responses don't hang
-		ErrorHandler: middleware.ErrorHandler(), // Standardized error responses across all endpoints
+		ErrorHandler: middleware.ErrorHandler(),                            // Standardized error responses across all endpoints
 	})
 
 	// PHASE 9: MIDDLEWARE STACK SETUP
 	// Middleware is applied in order - each request passes through this stack
-	app.Use(recover.New())              // Recover from panics gracefully
-	app.Use(middleware.RequestID())     // Generate unique request IDs for tracing
-	app.Use(cors.New(cors.Config{       // Enable CORS for React frontend communication
-		AllowOrigins: "*",              // Allow all origins (configure for production)
+	app.Use(recover.New())          // Recover from panics gracefully
+	app.Use(middleware.RequestID()) // Generate unique request IDs for tracing
+	app.Use(cors.New(cors.Config{   // Enable CORS for React frontend communication
+		AllowOrigins: "*", // Allow all origins (configure for production)
 		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
 		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
 	}))
@@ -203,62 +203,62 @@ func main() {
 
 	// PHASE 10: API ROUTE REGISTRATION
 	// Routes are organized by functionality with proper HTTP methods
-	
+
 	// System health endpoint - critical for monitoring and load balancers
 	app.Get("/api/health", healthHandler.HandleHealth)
 
 	// API route group for versioning and organization
 	api := app.Group("/api")
-	
+
 	// Development/testing endpoints for API validation
 	api.Get("/test", func(c *fiber.Ctx) error {
 		slog.Info("Test endpoint called")
 		return c.JSON(fiber.Map{
-			"message": "API routing is working",
+			"message":   "API routing is working",
 			"timestamp": time.Now(),
 		})
 	})
-	
+
 	// Simple connectivity test
 	api.Get("/ping", func(c *fiber.Ctx) error {
 		return c.SendString("pong")
 	})
-	
+
 	// Authentication endpoints - user registration, login, profile management
 	if authHandler != nil {
 		authGroup := api.Group("/auth")
-		authGroup.Post("/signup", authHandler.HandleSignup)                                  // User registration
-		authGroup.Post("/login", authHandler.HandleLogin)                                   // User login
-		authGroup.Post("/logout", auth.RequireAuth(authService), authHandler.HandleLogout)  // Logout current session
+		authGroup.Post("/signup", authHandler.HandleSignup)                                       // User registration
+		authGroup.Post("/login", authHandler.HandleLogin)                                         // User login
+		authGroup.Post("/logout", auth.RequireAuth(authService), authHandler.HandleLogout)        // Logout current session
 		authGroup.Post("/logout-all", auth.RequireAuth(authService), authHandler.HandleLogoutAll) // Logout all sessions
-		authGroup.Get("/me", auth.RequireAuth(authService), authHandler.HandleGetProfile)    // Get current user profile
+		authGroup.Get("/me", auth.RequireAuth(authService), authHandler.HandleGetProfile)         // Get current user profile
 		authGroup.Put("/profile", auth.RequireAuth(authService), authHandler.HandleUpdateProfile) // Update profile
-		authGroup.Get("/check-email", authHandler.HandleCheckEmail)                          // Check if email exists
+		authGroup.Get("/check-email", authHandler.HandleCheckEmail)                               // Check if email exists
 	}
-	
+
 	// Chat endpoints - main functionality for RAG-based conversations (requires authentication)
 	if chatHandler != nil {
 		// Apply required auth middleware to chat endpoint - all chat requires authentication
 		api.Post("/chat", auth.RequireAuth(authService), chatHandler.HandleChat) // Process chat messages through RAG service
 	}
-	
+
 	// Conversation endpoints - chat history management (requires authentication)
 	if conversationHandler != nil {
 		convGroup := api.Group("/conversations", auth.RequireAuth(authService))
-		convGroup.Get("/", conversationHandler.HandleListConversations)             // List user's conversations
-		convGroup.Post("/", conversationHandler.HandleCreateConversation)          // Create new conversation
-		convGroup.Get("/:id", conversationHandler.HandleGetConversation)           // Get conversation with messages
-		convGroup.Put("/:id", conversationHandler.HandleUpdateConversation)        // Update conversation title
-		convGroup.Delete("/:id", conversationHandler.HandleDeleteConversation)     // Delete conversation
+		convGroup.Get("/", conversationHandler.HandleListConversations)                   // List user's conversations
+		convGroup.Post("/", conversationHandler.HandleCreateConversation)                 // Create new conversation
+		convGroup.Get("/:id", conversationHandler.HandleGetConversation)                  // Get conversation with messages
+		convGroup.Put("/:id", conversationHandler.HandleUpdateConversation)               // Update conversation title
+		convGroup.Delete("/:id", conversationHandler.HandleDeleteConversation)            // Delete conversation
 		convGroup.Get("/:id/messages", conversationHandler.HandleGetConversationMessages) // Get conversation messages with pagination
 	}
-	
+
 	// Article management endpoints - CRUD operations for knowledge base (requires authentication)
 	if articleHandler != nil {
 		articleGroup := api.Group("/articles", auth.RequireAuth(authService))
-		articleGroup.Post("/", articleHandler.HandleAddArticle)       // Add new article to RAG system
-		articleGroup.Get("/", articleHandler.HandleListArticles)       // List processed articles
-		articleGroup.Get("/:id", articleHandler.HandleGetArticle)     // Get specific article details
+		articleGroup.Post("/", articleHandler.HandleAddArticle)         // Add new article to RAG system
+		articleGroup.Get("/", articleHandler.HandleListArticles)        // List processed articles
+		articleGroup.Get("/:id", articleHandler.HandleGetArticle)       // Get specific article details
 		articleGroup.Delete("/:id", articleHandler.HandleDeleteArticle) // Remove article from system
 	}
 
@@ -267,28 +267,28 @@ func main() {
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM) // Listen for shutdown signals
-		<-c // Block until signal received
+		<-c                                             // Block until signal received
 
 		slog.Info("Shutting down server...")
-		
+
 		// 1. Stop accepting new work - shutdown worker pools first
 		poolManager.Shutdown()
-		
+
 		// 2. Close cache connections to prevent data corruption
 		if err := cache.Close(); err != nil {
 			slog.Error("Cache close error", "error", err)
 		}
-		
+
 		// 3. Close database connections
 		if err := db.Close(); err != nil {
 			slog.Error("Database close error", "error", err)
 		}
-		
+
 		// 4. Shutdown HTTP server gracefully - allows in-flight requests to complete
 		if err := app.Shutdown(); err != nil {
 			slog.Error("Server shutdown error", "error", err)
 		}
-		
+
 		slog.Info("Server shutdown complete")
 		os.Exit(0)
 	}()
@@ -296,11 +296,11 @@ func main() {
 	// PHASE 12: SERVER STARTUP
 	// Start the HTTP server and begin accepting requests
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
-	slog.Info("Starting Article Chat API server", 
-		"address", addr, 
+	slog.Info("Starting Article Chat API server",
+		"address", addr,
 		"environment", cfg.Server.Environment,
 		"rag_service_url", cfg.RAGService.URL)
-	
+
 	// app.Listen blocks here - server runs until shutdown signal
 	if err := app.Listen(addr); err != nil {
 		slog.Error("Server failed to start", "error", err)

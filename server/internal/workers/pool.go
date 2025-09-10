@@ -1,7 +1,6 @@
 package workers
 
 import (
-	"context"
 	"log/slog"
 	"time"
 
@@ -43,30 +42,6 @@ func (pm *PoolManager) SubmitTask(task func()) {
 	pm.GeneralPool.Submit(task)
 }
 
-func (pm *PoolManager) SubmitArticleTaskWithTimeout(ctx context.Context, task func(), timeout time.Duration) error {
-	taskCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	taskChan := make(chan struct{}, 1)
-	
-	pm.ArticleProcessor.Submit(func() {
-		defer func() {
-			if r := recover(); r != nil {
-				slog.Error("Article task panicked", "error", r)
-			}
-			taskChan <- struct{}{}
-		}()
-		task()
-	})
-
-	select {
-	case <-taskChan:
-		return nil
-	case <-taskCtx.Done():
-		return taskCtx.Err()
-	}
-}
-
 func (pm *PoolManager) GetStats() map[string]interface{} {
 	return map[string]interface{}{
 		"article_pool": map[string]interface{}{
@@ -90,12 +65,12 @@ func (pm *PoolManager) GetStats() map[string]interface{} {
 
 func (pm *PoolManager) Shutdown() {
 	slog.Info("Shutting down worker pools...")
-	
+
 	pm.ArticleProcessor.StopAndWait()
 	slog.Info("Article processor pool stopped")
-	
+
 	pm.GeneralPool.StopAndWait()
 	slog.Info("General pool stopped")
-	
+
 	slog.Info("All worker pools shut down successfully")
 }

@@ -51,10 +51,10 @@ import (
 // CacheService defines the interface for all caching implementations
 // Provides abstraction layer allowing Redis/Memory cache implementations
 type CacheService interface {
-	Get(ctx context.Context, key string, dest interface{}) error    // Retrieve cached value
+	Get(ctx context.Context, key string, dest interface{}) error                            // Retrieve cached value
 	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error // Store value with TTL
-	Delete(ctx context.Context, key string) error                   // Remove cached value
-	Close() error                                                    // Cleanup resources
+	Delete(ctx context.Context, key string) error                                           // Remove cached value
+	Close() error                                                                           // Cleanup resources
 }
 
 // ============================================================================
@@ -206,15 +206,15 @@ func GenerateCacheKey(message string, conversationContext string) string {
 func normalizeMessage(message string) string {
 	// STEP 1: Basic cleanup - convert to lowercase and trim whitespace
 	normalized := strings.ToLower(strings.TrimSpace(message))
-	
+
 	// STEP 2: Remove trailing punctuation (conservative approach)
 	// Handles: "What is Bitcoin?" → "what is bitcoin"
 	normalized = strings.TrimRight(normalized, "?!.,;:")
-	
+
 	// STEP 3: Normalize multiple spaces to single spaces
 	// Handles: "  What   is Bitcoin  " → "what is bitcoin"
 	normalized = strings.Join(strings.Fields(normalized), " ")
-	
+
 	return normalized
 }
 
@@ -222,6 +222,6 @@ func normalizeMessage(message string) string {
 // Used to prevent duplicate article processing and embedding generation
 // Provides 98.9% performance improvement for duplicate URL requests
 func GenerateArticleCacheKey(url string) string {
-	hash := sha256.Sum256([]byte(url))                       // Hash the URL directly (no normalization needed)
-	return "article:" + hex.EncodeToString(hash[:])[:16]     // Prefix + first 16 chars for uniqueness
+	hash := sha256.Sum256([]byte(url))                   // Hash the URL directly (no normalization needed)
+	return "article:" + hex.EncodeToString(hash[:])[:16] // Prefix + first 16 chars for uniqueness
 }

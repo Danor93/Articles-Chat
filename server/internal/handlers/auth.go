@@ -206,7 +206,7 @@ func (h *AuthHandler) HandleUpdateProfile(c *fiber.Ctx) error {
 // HandleCheckEmail checks if an email is already registered
 func (h *AuthHandler) HandleCheckEmail(c *fiber.Ctx) error {
 	email := strings.TrimSpace(strings.ToLower(c.Query("email")))
-	
+
 	if email == "" {
 		return errors.New(errors.ErrMissingRequiredField, "Email is required")
 	}

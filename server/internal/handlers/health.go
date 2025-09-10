@@ -26,7 +26,7 @@ func NewHealthHandler(cfg *config.Config, ragClient *services.RAGClient, poolMan
 
 func (h *HealthHandler) HandleHealth(c *fiber.Ctx) error {
 	stats := h.poolManager.GetStats()
-	
+
 	// Check RAG service health
 	ragStatus := "unknown"
 	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
@@ -36,14 +36,14 @@ func (h *HealthHandler) HandleHealth(c *fiber.Ctx) error {
 	} else {
 		ragStatus = "healthy"
 	}
-	
+
 	return c.JSON(fiber.Map{
-		"status":           "ok",
-		"message":          "Article Chat API is running",
-		"timestamp":        time.Now(),
-		"environment":      h.config.Server.Environment,
-		"worker_stats":     stats,
-		"rag_service":      ragStatus,
-		"rag_service_url":  h.config.RAGService.URL,
+		"status":          "ok",
+		"message":         "Article Chat API is running",
+		"timestamp":       time.Now(),
+		"environment":     h.config.Server.Environment,
+		"worker_stats":    stats,
+		"rag_service":     ragStatus,
+		"rag_service_url": h.config.RAGService.URL,
 	})
 }

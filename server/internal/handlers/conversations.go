@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/gofiber/fiber/v2"
-	
+	"github.com/google/uuid"
+
 	"article-chat-system/server/internal/auth"
 	"article-chat-system/server/internal/database"
 	"article-chat-system/server/internal/errors"

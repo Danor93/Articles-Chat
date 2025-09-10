@@ -115,7 +115,7 @@ func (db *DB) GetUserPasswordHash(email string) (uuid.UUID, string, error) {
 	var passwordHash string
 
 	query := `SELECT id, password_hash FROM users WHERE email = $1 AND is_active = true`
-	
+
 	err := db.QueryRow(query, email).Scan(&userID, &passwordHash)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -154,7 +154,7 @@ func (db *DB) UpdateUser(userID uuid.UUID, update *models.UserUpdate) error {
 // UpdateLastLogin updates the user's last login timestamp
 func (db *DB) UpdateLastLogin(userID uuid.UUID) error {
 	query := `UPDATE users SET last_login = NOW() WHERE id = $1`
-	
+
 	_, err := db.Exec(query, userID)
 	if err != nil {
 		return errors.Wrap(err, errors.ErrDatabaseError)
@@ -166,7 +166,7 @@ func (db *DB) UpdateLastLogin(userID uuid.UUID) error {
 // DeactivateUser soft deletes a user by setting is_active to false
 func (db *DB) DeactivateUser(userID uuid.UUID) error {
 	query := `UPDATE users SET is_active = false, updated_at = NOW() WHERE id = $1`
-	
+
 	result, err := db.Exec(query, userID)
 	if err != nil {
 		return errors.Wrap(err, errors.ErrDatabaseError)
@@ -188,7 +188,7 @@ func (db *DB) DeactivateUser(userID uuid.UUID) error {
 func (db *DB) CheckEmailExists(email string) (bool, error) {
 	var exists bool
 	query := `SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)`
-	
+
 	err := db.QueryRow(query, email).Scan(&exists)
 	if err != nil {
 		return false, errors.Wrap(err, errors.ErrDatabaseError)

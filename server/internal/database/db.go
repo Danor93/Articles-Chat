@@ -7,9 +7,9 @@ import (
 	"log"
 	"time"
 
-	_ "github.com/lib/pq" // PostgreSQL driver
 	"article-chat-system/server/internal/config"
 	"article-chat-system/server/internal/errors"
+	_ "github.com/lib/pq" // PostgreSQL driver
 )
 
 // DB holds the database connection pool

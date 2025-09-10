@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"encoding/json"
 
-	"github.com/google/uuid"
 	"article-chat-system/server/internal/errors"
 	"article-chat-system/server/internal/models"
+	"github.com/google/uuid"
 )
 
 // CreateMessage creates a new message in a conversation
@@ -259,7 +259,7 @@ func (db *DB) CreateMessagePair(ctx context.Context, conversationID uuid.UUID, u
 		if err != nil {
 			return errors.Wrap(err, errors.ErrDatabaseError)
 		}
-		
+
 		// Parse user metadata if exists (usually null for user messages)
 		if userMetadataStr.Valid && userMetadataStr.String != "" {
 			err = json.Unmarshal([]byte(userMetadataStr.String), &userMsg.Metadata)

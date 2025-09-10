@@ -2,7 +2,6 @@ package validation
 
 import (
 	"article-chat-system/server/internal/errors"
-	"fmt"
 	"net/url"
 	"regexp"
 	"strings"
@@ -69,68 +68,6 @@ func ValidateArticleURL(urlStr string) error {
 	return nil
 }
 
-// ValidateBatchArticleURLs validates a batch of article URLs
-func ValidateBatchArticleURLs(urls []string) error {
-	if len(urls) == 0 {
-		return errors.New(errors.ErrMissingRequiredField, "urls array is required and cannot be empty")
-	}
-
-	if len(urls) > 100 {
-		return errors.NewWithDetails(
-			errors.ErrValidationFailed,
-			"cannot process more than 100 URLs at once",
-			map[string]interface{}{
-				"max_allowed": 100,
-				"actual":      len(urls),
-			},
-		)
-	}
-
-	var invalidURLs []string
-	for _, urlStr := range urls {
-		if err := ValidateArticleURL(urlStr); err != nil {
-			invalidURLs = append(invalidURLs, urlStr)
-		}
-	}
-
-	if len(invalidURLs) > 0 {
-		return errors.NewWithDetails(
-			errors.ErrValidationFailed,
-			fmt.Sprintf("found %d invalid URLs", len(invalidURLs)),
-			map[string]interface{}{
-				"invalid_urls": invalidURLs,
-			},
-		)
-	}
-
-	return nil
-}
-
-// ValidatePagination validates pagination parameters
-func ValidatePagination(limit, offset int) error {
-	if limit < 0 || limit > 100 {
-		return errors.NewWithDetails(
-			errors.ErrValidationFailed,
-			"limit must be between 0 and 100",
-			map[string]interface{}{
-				"limit": limit,
-			},
-		)
-	}
-
-	if offset < 0 {
-		return errors.NewWithDetails(
-			errors.ErrValidationFailed,
-			"offset must be non-negative",
-			map[string]interface{}{
-				"offset": offset,
-			},
-		)
-	}
-
-	return nil
-}
-
 // isValidConversationID checks if a conversation ID is valid
 func isValidConversationID(id string) bool {
 	if id == "" {
@@ -153,13 +90,4 @@ func SanitizeString(input string) string {
 		return r
 	}, input)
 	return cleaned
-}
-
-// ValidateStruct validates a struct using reflection (simplified implementation)
-func ValidateStruct(v interface{}) error {
-	// This is a simplified validator for our authentication structs
-	// In a real application, you might use a library like go-playground/validator
-	
-	// Since we don't have reflection-based validation, we'll handle each type manually
-	return nil // Placeholder - validation will be done in handlers
 }

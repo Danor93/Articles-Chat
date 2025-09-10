@@ -61,7 +61,7 @@ func (f *ArticleFetcher) FetchArticle(ctx context.Context, articleURL string) (*
 
 	// Use Jina Reader API for clean article extraction
 	jinaURL := "https://r.jina.ai/" + articleURL
-	
+
 	// Get JINA API key from environment
 	jinaAPIKey := os.Getenv("JINA_API_KEY")
 
@@ -69,7 +69,7 @@ func (f *ArticleFetcher) FetchArticle(ctx context.Context, articleURL string) (*
 		SetContext(ctx).
 		SetHeader("Accept", "application/json").
 		SetResult(&JinaResponse{})
-		
+
 	// Add Authorization header if API key is available
 	if jinaAPIKey != "" {
 		request = request.SetHeader("Authorization", "Bearer "+jinaAPIKey)
@@ -122,53 +122,6 @@ func (f *ArticleFetcher) FetchArticle(ctx context.Context, articleURL string) (*
 		"reading_time", article.Metadata.ReadingTime)
 
 	return article, nil
-}
-
-func (f *ArticleFetcher) FetchMultiple(ctx context.Context, urls []string) ([]*models.Article, []error) {
-	if len(urls) == 0 {
-		return nil, nil
-	}
-
-	articles := make([]*models.Article, len(urls))
-	errors := make([]error, len(urls))
-
-	// Create channels for results
-	type result struct {
-		index   int
-		article *models.Article
-		err     error
-	}
-
-	resultChan := make(chan result, len(urls))
-
-	// Start workers for concurrent fetching
-	semaphore := make(chan struct{}, 5) // Limit concurrent requests
-	for i, articleURL := range urls {
-		go func(index int, url string) {
-			semaphore <- struct{}{} // Acquire
-			defer func() { <-semaphore }() // Release
-
-			article, err := f.FetchArticle(ctx, url)
-			resultChan <- result{
-				index:   index,
-				article: article,
-				err:     err,
-			}
-		}(i, articleURL)
-	}
-
-	// Collect results
-	for i := 0; i < len(urls); i++ {
-		select {
-		case res := <-resultChan:
-			articles[res.index] = res.article
-			errors[res.index] = res.err
-		case <-ctx.Done():
-			return nil, []error{ctx.Err()}
-		}
-	}
-
-	return articles, errors
 }
 
 func (f *ArticleFetcher) validateURL(rawURL string) error {

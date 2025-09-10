@@ -66,7 +66,7 @@ func HashToken(token string) string {
 func (s *AuthService) SignupUser(signup *models.UserSignup) (*models.User, error) {
 	// Validate email format
 	signup.Email = strings.TrimSpace(strings.ToLower(signup.Email))
-	
+
 	// Check if email already exists
 	exists, err := s.db.CheckEmailExists(signup.Email)
 	if err != nil {
@@ -151,7 +151,7 @@ func (s *AuthService) LogoutAllSessions(userID uuid.UUID) error {
 // ValidateSession checks if a session token is valid and returns the user
 func (s *AuthService) ValidateSession(token string) (*models.User, error) {
 	tokenHash := HashToken(token)
-	
+
 	// Get session
 	session, err := s.db.GetSessionByToken(tokenHash)
 	if err != nil {

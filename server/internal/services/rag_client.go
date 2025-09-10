@@ -25,10 +25,10 @@ type RAGClient struct {
 
 // RAGChatRequest represents the request to the RAG service
 type RAGChatRequest struct {
-	Query              string                `json:"query"`
-	ConversationID     string                `json:"conversationId"`
+	Query               string               `json:"query"`
+	ConversationID      string               `json:"conversationId"`
 	ConversationHistory []models.ChatMessage `json:"conversationHistory,omitempty"`
-	Stream             bool                  `json:"stream"`
+	Stream              bool                 `json:"stream"`
 }
 
 // RAGChatResponse represents the response from the RAG service
@@ -48,9 +48,9 @@ type RAGArticleRequest struct {
 
 // RAGStatusResponse represents the service status
 type RAGStatusResponse struct {
-	Status           string                 `json:"status"`
-	ProcessedArticles int                   `json:"processedArticles"`
-	VectorStoreInfo  map[string]interface{} `json:"vectorStoreInfo"`
+	Status            string                 `json:"status"`
+	ProcessedArticles int                    `json:"processedArticles"`
+	VectorStoreInfo   map[string]interface{} `json:"vectorStoreInfo"`
 }
 
 // NewRAGClient creates a new RAG service client
@@ -64,7 +64,7 @@ func NewRAGClient(cfg config.RAGServiceConfig) *RAGClient {
 	// Set headers
 	client.SetHeader("Content-Type", "application/json")
 	client.SetHeader("Accept", "application/json")
-	
+
 	// Set base URL
 	baseURL := cfg.URL
 	if baseURL == "" {
@@ -118,13 +118,13 @@ func (r *RAGClient) ProcessChat(ctx context.Context, query string, conversationI
 	processingTime := time.Since(startTime).Milliseconds()
 
 	response := &models.ChatResponse{
-		ConversationID:  conversationID,
-		Message:         ragResp.Response,
-		Sources:         ragResp.Sources,
-		TokensUsed:      ragResp.TokensUsed,
-		ProcessingTime:  processingTime,
-		Model:           "claude-3-opus",
-		CreatedAt:       time.Now(),
+		ConversationID: conversationID,
+		Message:        ragResp.Response,
+		Sources:        ragResp.Sources,
+		TokensUsed:     ragResp.TokensUsed,
+		ProcessingTime: processingTime,
+		Model:          "claude-3-opus",
+		CreatedAt:      time.Now(),
 	}
 
 	slog.Info("RAG service response received",
@@ -292,47 +292,6 @@ func (r *RAGClient) ProcessArticle(ctx context.Context, url string, metadata map
 
 	slog.Info("Article sent to RAG service for processing", "url", url)
 	return nil
-}
-
-// BatchProcessArticles sends multiple articles for processing
-func (r *RAGClient) BatchProcessArticles(ctx context.Context, urls []string) error {
-	request := map[string][]string{
-		"urls": urls,
-	}
-
-	resp, err := r.client.R().
-		SetContext(ctx).
-		SetBody(request).
-		Post("/api/articles/batch")
-
-	if err != nil {
-		return fmt.Errorf("failed to batch process articles: %w", err)
-	}
-
-	if resp.StatusCode() != http.StatusOK && resp.StatusCode() != http.StatusAccepted {
-		return fmt.Errorf("failed to batch process articles: status %d, body: %s", resp.StatusCode(), string(resp.Body()))
-	}
-
-	slog.Info("Articles sent to RAG service for batch processing", "count", len(urls))
-	return nil
-}
-
-// GetProcessingStatus returns the status of article processing
-func (r *RAGClient) GetProcessingStatus(ctx context.Context) (*RAGStatusResponse, error) {
-	resp, err := r.client.R().
-		SetContext(ctx).
-		SetResult(&RAGStatusResponse{}).
-		Get("/api/articles/status")
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get processing status: %w", err)
-	}
-
-	if resp.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("failed to get processing status: status %d", resp.StatusCode())
-	}
-
-	return resp.Result().(*RAGStatusResponse), nil
 }
 
 // HealthCheck verifies the RAG service is accessible

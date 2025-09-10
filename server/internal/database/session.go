@@ -14,7 +14,7 @@ func (db *DB) CreateSession(userID uuid.UUID, tokenHash string, userAgent, ipAdd
 	session := &models.UserSession{
 		ID:        uuid.New(),
 		UserID:    userID,
-		Token:     tokenHash, // This should be the hashed token
+		Token:     tokenHash,                      // This should be the hashed token
 		ExpiresAt: time.Now().Add(24 * time.Hour), // Sessions expire in 24 hours
 		CreatedAt: time.Now(),
 		UserAgent: userAgent,

@@ -66,18 +66,18 @@ func (h *ArticleHandler) HandleAddArticle(c *fiber.Ctx) error {
 	// Check if article is already cached
 	var cachedResponse models.AddArticleResponse
 	if err := h.cache.Get(ctx, cacheKey, &cachedResponse); err == nil {
-		slog.Info("Article cache hit", 
+		slog.Info("Article cache hit",
 			"url", req.URL,
 			"cache_key", cacheKey[:12]+"...",
 			"cached_article_id", cachedResponse.ID)
-		
+
 		// Mark as cached and return
 		cachedResponse.Cached = true
 		cachedResponse.Message = "Article already processed (from cache)"
 		return c.JSON(cachedResponse)
 	}
 
-	slog.Debug("Article cache miss", 
+	slog.Debug("Article cache miss",
 		"url", req.URL,
 		"cache_key", cacheKey[:12]+"...")
 
@@ -88,7 +88,7 @@ func (h *ArticleHandler) HandleAddArticle(c *fiber.Ctx) error {
 	h.poolManager.SubmitArticleTask(func() {
 		// Create a simple article record
 		slog.Info("Forwarding article to RAG service", "url", req.URL)
-		
+
 		// Generate a simple ID from URL
 		articleID := fmt.Sprintf("article_%d", time.Now().Unix())
 		article := &models.Article{
@@ -101,11 +101,11 @@ func (h *ArticleHandler) HandleAddArticle(c *fiber.Ctx) error {
 
 		// Send article to RAG service for processing
 		metadata := map[string]interface{}{
-			"article_id": articleID,
-			"source":     "user_submitted",
+			"article_id":   articleID,
+			"source":       "user_submitted",
 			"submitted_at": time.Now(),
 		}
-		
+
 		if err := h.ragClient.ProcessArticle(ctx, req.URL, metadata); err != nil {
 			slog.Error("Failed to send article to RAG service", "error", err, "url", req.URL)
 			errorChan <- fmt.Errorf("failed to process article: %w", err)
@@ -213,7 +213,7 @@ func (h *ArticleHandler) HandleDeleteArticle(c *fiber.Ctx) error {
 	h.articlesMux.Lock()
 	delete(h.articles, articleID)
 	h.articlesMux.Unlock()
-	
+
 	// Note: Deletion from RAG service should be implemented if needed
 
 	slog.Info("Article deleted successfully", "article_id", articleID, "title", article.Title)

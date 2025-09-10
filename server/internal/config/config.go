@@ -10,11 +10,11 @@ import (
 )
 
 type Config struct {
-	Server      ServerConfig      `json:"server"`
-	RAGService  RAGServiceConfig  `json:"rag_service"`
-	Database    DatabaseConfig    `json:"database"`
-	Redis       RedisConfig       `json:"redis"`
-	RateLimit   RateLimitConfig   `json:"rate_limit"`
+	Server     ServerConfig     `json:"server"`
+	RAGService RAGServiceConfig `json:"rag_service"`
+	Database   DatabaseConfig   `json:"database"`
+	Redis      RedisConfig      `json:"redis"`
+	RateLimit  RateLimitConfig  `json:"rate_limit"`
 }
 
 type ServerConfig struct {
@@ -76,7 +76,7 @@ func Load() (*Config, error) {
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("./config")
-	
+
 	if err := viper.ReadInConfig(); err != nil {
 		slog.Debug("No YAML config file found, using environment variables and defaults")
 	}
@@ -159,7 +159,7 @@ func setDefaults() {
 
 func validateConfig(config *Config) error {
 	// Debug logging (without sensitive URLs)
-	slog.Debug("Config validation", 
+	slog.Debug("Config validation",
 		"has_rag_service_url", config.RAGService.URL != "",
 		"has_database_url", config.Database.URL != "")
 

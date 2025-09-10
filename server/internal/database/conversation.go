@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/google/uuid"
 	"article-chat-system/server/internal/errors"
 	"article-chat-system/server/internal/models"
+	"github.com/google/uuid"
 )
 
 // CreateConversation creates a new conversation for a user

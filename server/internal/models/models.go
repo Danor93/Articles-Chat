@@ -46,13 +46,13 @@ type ChatMeta struct {
 }
 
 type ChatRequest struct {
-	Message         string            `json:"message"`
-	ConversationID  string            `json:"conversation_id,omitempty"`
-	Stream          bool              `json:"stream"`
-	MaxTokens       int               `json:"max_tokens,omitempty"`
-	Temperature     float64           `json:"temperature,omitempty"`
-	SearchFilters   map[string]string `json:"search_filters,omitempty"`
-	IncludeSources  bool              `json:"include_sources"`
+	Message        string            `json:"message"`
+	ConversationID string            `json:"conversation_id,omitempty"`
+	Stream         bool              `json:"stream"`
+	MaxTokens      int               `json:"max_tokens,omitempty"`
+	Temperature    float64           `json:"temperature,omitempty"`
+	SearchFilters  map[string]string `json:"search_filters,omitempty"`
+	IncludeSources bool              `json:"include_sources"`
 }
 
 type ChatResponse struct {
@@ -68,12 +68,12 @@ type ChatResponse struct {
 }
 
 type ChunkSource struct {
-	ArticleID   string  `json:"article_id"`
+	ArticleID    string  `json:"article_id"`
 	ArticleTitle string  `json:"article_title"`
-	ChunkID     string  `json:"chunk_id"`
-	Content     string  `json:"content"`
-	Relevance   float32 `json:"relevance"`
-	Position    int     `json:"position"`
+	ChunkID      string  `json:"chunk_id"`
+	Content      string  `json:"content"`
+	Relevance    float32 `json:"relevance"`
+	Position     int     `json:"position"`
 }
 
 type StreamResponse struct {
